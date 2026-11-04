@@ -18,7 +18,7 @@ import {
 } from '@emdash/ui/react/components';
 import { toast } from '@emdash/ui/react/primitives';
 import type { BlobSource } from '@emdash/wire/rpc';
-import { action, computed, makeObservable, observable, reaction, runInAction } from 'mobx';
+import { action, computed, makeObservable, observable, reaction, runInAction, when } from 'mobx';
 import { getAgentsClient, hostRefFromConnectionId } from '@core/features/agents/api/browser/client';
 import {
   registerConversationCommands,
@@ -63,6 +63,8 @@ export interface AgentAffordances {
   canSubmit: boolean;
   canCancel: boolean;
 }
+
+const INTERRUPT_QUEUE_SYNC_TIMEOUT_MS = 5_000;
 
 type StoredPromptAttachment = Extract<PromptAttachment, { type: 'attachment' }>;
 
@@ -444,7 +446,7 @@ export class AcpChatStore {
     }
 
     void this._submitPrompt(promptId, text, promptAttachments, hiddenContext).then((outcome) => {
-      if (outcome === 'queued' && options.interrupt) void this._sendQueuedPromptNow(promptId);
+      if (outcome === 'queued' && options.interrupt) void this._interruptWithQueuedPrompt(promptId);
       if (outcome === 'accepted' || outcome === 'queued') onAccepted?.();
       if (outcome !== 'rejected') return;
       runInAction(() => {
@@ -825,6 +827,30 @@ export class AcpChatStore {
       this._toastError('Failed to send message', error);
       return 'rejected';
     }
+  }
+
+  /**
+   * The runtime confirms a queued prompt before the replicated session state includes it, so wait
+   * for the prompt to appear locally (or the turn to end) before promoting it.
+   */
+  private async _interruptWithQueuedPrompt(id: string): Promise<void> {
+    try {
+      await when(
+        () =>
+          this._disposed ||
+          !this.affordances.isWorking ||
+          this._queuedPromptModels().some((prompt) => prompt.id === id),
+        { timeout: INTERRUPT_QUEUE_SYNC_TIMEOUT_MS }
+      );
+    } catch {
+      this._toastError(
+        'Failed to interrupt; message stays queued',
+        new Error('Session state did not update in time')
+      );
+      return;
+    }
+    if (this._disposed) return;
+    await this._sendQueuedPromptNow(id);
   }
 
   private async _sendQueuedPromptNow(id: string): Promise<void> {

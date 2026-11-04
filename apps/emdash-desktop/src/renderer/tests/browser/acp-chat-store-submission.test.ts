@@ -739,48 +739,102 @@ describe('AcpChatStore prompt submission', () => {
   });
 
   describe('follow-up while working', () => {
+    // The runtime replies `queued` before the replicated session state lists the prompt;
+    // `syncQueue` delivers that later state update.
     function workingStoreQueuingPrompts() {
-      const state: SessionState = { ...idleState(), isGenerating: true, canCancel: true };
-      const sendPrompt = vi.fn(async (_prompt: unknown, _placement: unknown, promptId: string) => {
-        state.queuedPrompts = [
-          { id: 'earlier', text: 'earlier', createdAt: 0, updatedAt: 0 },
-          { id: promptId, text: 'follow-up', createdAt: 1, updatedAt: 1 },
-        ];
-        return { success: true, data: { queued: true } };
-      });
+      const state = observable.box<SessionState>(
+        { ...idleState(), isGenerating: true, canCancel: true },
+        { deep: false }
+      );
+      const sendPrompt = vi.fn(async (_prompt: unknown, _placement: unknown, _id: string) => ({
+        success: true,
+        data: { queued: true },
+      }));
       const changeQueuePromptOrder = vi.fn(async () => ({ success: true, data: undefined }));
       const cancelTurn = vi.fn(async () => ({ success: true, data: undefined }));
-      const store = createStore(state, sendPrompt, { changeQueuePromptOrder, cancelTurn });
-      return { store, sendPrompt, changeQueuePromptOrder, cancelTurn };
+      const store = createStore(state.get(), sendPrompt, {
+        sessionState: { current: () => state.get() },
+        changeQueuePromptOrder,
+        cancelTurn,
+      });
+      const promptId = () => sendPrompt.mock.calls[0][2];
+      const setState = (patch: Partial<SessionState>) =>
+        runInAction(() => state.set({ ...state.get(), ...patch }));
+      const syncQueue = () =>
+        setState({
+          queuedPrompts: [
+            { id: 'earlier', text: 'earlier', createdAt: 0, updatedAt: 0 },
+            { id: promptId(), text: 'follow-up', createdAt: 1, updatedAt: 1 },
+          ],
+        });
+      return { store, promptId, syncQueue, setState, changeQueuePromptOrder, cancelTurn };
     }
 
-    it('moves the prompt to the front and cancels the turn when interrupting', async () => {
-      const { store, sendPrompt, changeQueuePromptOrder, cancelTurn } =
+    it('moves the prompt to the front and cancels the turn once the queue syncs', async () => {
+      const { store, promptId, syncQueue, changeQueuePromptOrder, cancelTurn } =
         workingStoreQueuingPrompts();
       const onAccepted = vi.fn();
 
       store.submitPrompt('follow-up', [], undefined, onAccepted, { interrupt: true });
+      await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1));
+      expect(changeQueuePromptOrder).not.toHaveBeenCalled();
+
+      syncQueue();
 
       await vi.waitFor(() => expect(cancelTurn).toHaveBeenCalledTimes(1));
-      const promptId = sendPrompt.mock.calls[0][2];
-      expect(changeQueuePromptOrder).toHaveBeenCalledWith([promptId, 'earlier']);
+      expect(changeQueuePromptOrder).toHaveBeenCalledWith([promptId(), 'earlier']);
       expect(changeQueuePromptOrder.mock.invocationCallOrder[0]).toBeLessThan(
         cancelTurn.mock.invocationCallOrder[0]
       );
-      expect(onAccepted).toHaveBeenCalledTimes(1);
     });
 
     it('leaves the prompt queued without cancelling when not interrupting', async () => {
-      const { store, sendPrompt, changeQueuePromptOrder, cancelTurn } =
-        workingStoreQueuingPrompts();
+      const { store, syncQueue, changeQueuePromptOrder, cancelTurn } = workingStoreQueuingPrompts();
       const onAccepted = vi.fn();
 
       store.submitPrompt('follow-up', [], undefined, onAccepted);
-
       await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1));
-      expect(sendPrompt).toHaveBeenCalledTimes(1);
+      syncQueue();
+      await Promise.resolve();
+
       expect(changeQueuePromptOrder).not.toHaveBeenCalled();
       expect(cancelTurn).not.toHaveBeenCalled();
+    });
+
+    it('does not cancel when the turn ends before the queue syncs', async () => {
+      const { store, setState, changeQueuePromptOrder, cancelTurn } = workingStoreQueuingPrompts();
+      const onAccepted = vi.fn();
+
+      store.submitPrompt('follow-up', [], undefined, onAccepted, { interrupt: true });
+      await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1));
+      setState({ isGenerating: false, canCancel: false });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(changeQueuePromptOrder).not.toHaveBeenCalled();
+      expect(cancelTurn).not.toHaveBeenCalled();
+    });
+
+    it('reports a failed interrupt when the queue never syncs', async () => {
+      vi.useFakeTimers();
+      const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+      try {
+        const { store, changeQueuePromptOrder, cancelTurn } = workingStoreQueuingPrompts();
+        const onAccepted = vi.fn();
+
+        store.submitPrompt('follow-up', [], undefined, onAccepted, { interrupt: true });
+        await vi.advanceTimersByTimeAsync(5_000);
+
+        expect(onAccepted).toHaveBeenCalledTimes(1);
+        expect(errorToast).toHaveBeenCalledWith(
+          'Failed to interrupt; message stays queued',
+          expect.anything()
+        );
+        expect(changeQueuePromptOrder).not.toHaveBeenCalled();
+        expect(cancelTurn).not.toHaveBeenCalled();
+      } finally {
+        errorToast.mockRestore();
+        vi.useRealTimers();
+      }
     });
 
     it('does not cancel anything when an interrupting prompt starts immediately', async () => {
