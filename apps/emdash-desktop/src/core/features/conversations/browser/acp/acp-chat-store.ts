@@ -53,6 +53,7 @@ import {
   asValueSource,
 } from './acp-live-session';
 import { bindSessionTerminalOutputs } from './acp-terminal-output-binding';
+import { promoteQueuedPrompt } from './promote-queued-prompt';
 
 export interface AgentAffordances {
   isWorking: boolean;
@@ -415,7 +416,8 @@ export class AcpChatStore {
     text: string,
     attachments: AcpPromptAttachment[] = [],
     hiddenContext?: string | Promise<string | undefined>,
-    onAccepted?: () => void
+    onAccepted?: () => void,
+    options: { interrupt?: boolean } = {}
   ): void {
     if (
       this.hostAccess?.liveAction.kind === 'disabled' ||
@@ -442,7 +444,8 @@ export class AcpChatStore {
     }
 
     void this._submitPrompt(promptId, text, promptAttachments, hiddenContext).then((outcome) => {
-      if (outcome === 'accepted') onAccepted?.();
+      if (outcome === 'queued' && options.interrupt) void this._sendQueuedPromptNow(promptId);
+      if (outcome === 'accepted' || outcome === 'queued') onAccepted?.();
       if (outcome !== 'rejected') return;
       runInAction(() => {
         if (this._disposed || submissionSequence !== this._submissionSequence) return;
@@ -771,7 +774,7 @@ export class AcpChatStore {
     text: string,
     attachments: StoredPromptAttachment[],
     hiddenContext?: string | Promise<string | undefined>
-  ): Promise<'accepted' | 'rejected' | 'unknown'> {
+  ): Promise<'accepted' | 'queued' | 'rejected' | 'unknown'> {
     if (this.hostAccess?.liveAction.kind === 'disabled') return 'rejected';
     const session = this.session;
     if (!session || !session.usable) {
@@ -809,7 +812,7 @@ export class AcpChatStore {
         this._toastError('Failed to send message', result.error);
         return 'rejected';
       }
-      return 'accepted';
+      return result.data.queued ? 'queued' : 'accepted';
     } catch (error) {
       if (error instanceof AcpPromptDeliveryUnknownError) {
         if (this._disposed) return 'unknown';
@@ -825,22 +828,15 @@ export class AcpChatStore {
   }
 
   private async _sendQueuedPromptNow(id: string): Promise<void> {
-    const current = this._queuedPromptModels();
-    if (!current.some((prompt) => prompt.id === id)) return;
-
-    const shouldCancelActiveTurn = this.affordances.isWorking;
-    const ids = [id, ...current.map((prompt) => prompt.id).filter((promptId) => promptId !== id)];
-    const reorderResult = await this.session?.changeQueuePromptOrder(ids);
-    if (!reorderResult?.success) {
-      this._toastError('Failed to send queued prompt', reorderResult?.error);
-      return;
-    }
-
-    if (!shouldCancelActiveTurn) return;
-    const cancelResult = await this.session?.cancelTurn();
-    if (!cancelResult?.success) {
-      this._toastError('Failed to send queued prompt', cancelResult?.error);
-    }
+    const session = this.session;
+    if (!session) return;
+    const result = await promoteQueuedPrompt(
+      session,
+      this._queuedPromptModels().map((prompt) => prompt.id),
+      id,
+      this.affordances.isWorking
+    );
+    if (!result.success) this._toastError('Failed to send queued prompt', result.error);
   }
 
   private async _exportTranscript(kind: 'parsed' | 'raw'): Promise<void> {

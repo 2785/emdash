@@ -45,6 +45,7 @@ import {
   projectData,
 } from '@core/features/projects/api/browser/stores/project-selectors';
 import { getSearchClient } from '@core/features/search/api/client';
+import { useAppSettingsKey } from '@core/features/settings/api/browser/use-app-settings-key';
 import { getGitRepositoryStore } from '@core/features/source-control/api/browser/stores/source-control-selectors';
 import { draftCommentsStoreToken } from '@core/features/source-control/contributions/browser/task-stores';
 // TODO(conversations-extraction): Pass task state into ACP chat instead of importing task stores.
@@ -259,6 +260,8 @@ const ComposerForStore = observer(function ComposerForStore({
     [store.projectId, store.taskId]
   );
 
+  const interruptOnFollowUp = useAppSettingsKey('followUpMode').value === 'interrupt';
+
   const handleSubmit = useCallback(
     (value: string) => {
       const promptAttachments = store.draftAttachments;
@@ -266,11 +269,15 @@ const ComposerForStore = observer(function ComposerForStore({
       const comments = hasDiffCommentsMention(value) ? (draftComments?.comments ?? []) : [];
       const hiddenContext = appendDraftCommentsContext(buildHiddenIssueContext(value), comments);
       // Only consume the comments that were sent; ones added or edited mid-flight stay drafted.
-      store.submitPrompt(value, promptAttachments, hiddenContext, () =>
-        draftComments?.deleteSent(comments)
+      store.submitPrompt(
+        value,
+        promptAttachments,
+        hiddenContext,
+        () => draftComments?.deleteSent(comments),
+        { interrupt: interruptOnFollowUp }
       );
     },
-    [store, buildHiddenIssueContext, draftComments]
+    [store, buildHiddenIssueContext, draftComments, interruptOnFollowUp]
   );
 
   const handleStop = useCallback(() => {
@@ -287,7 +294,7 @@ const ComposerForStore = observer(function ComposerForStore({
 
   const handleSendQueuedPromptNow = useCallback(
     (id: string) => {
-      if (!store.affordances.isWorking) {
+      if (!store.affordances.isWorking || interruptOnFollowUp) {
         store.sendQueuedPromptNow(id);
         return;
       }
@@ -302,7 +309,7 @@ const ComposerForStore = observer(function ComposerForStore({
         }
       });
     },
-    [store]
+    [store, interruptOnFollowUp]
   );
 
   const handleAttach = useCallback(() => {

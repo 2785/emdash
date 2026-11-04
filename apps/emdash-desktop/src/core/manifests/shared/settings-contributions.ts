@@ -3,7 +3,10 @@ import {
   browserPreviewSettingsContribution,
   browserSettingsContribution,
 } from '@core/features/browser/contributions/settings';
-import { preferredConversationTypeSettingsContribution } from '@core/features/conversations/contributions/settings';
+import {
+  followUpModeSettingsContribution,
+  preferredConversationTypeSettingsContribution,
+} from '@core/features/conversations/contributions/settings';
 import { filesSettingsContribution } from '@core/features/editor/contributions/settings';
 import {
   localProjectSettingsSchemaContribution,
@@ -36,6 +39,7 @@ export const appSettingsSchemaContributions = {
   files: filesSettingsContribution,
   defaultAgent: defaultAgentSettingsContribution,
   preferredConversationType: preferredConversationTypeSettingsContribution,
+  followUpMode: followUpModeSettingsContribution,
   keyboard: keyboardSettingsContribution,
   notifications: notificationSettingsContribution,
   theme: themeSettingsContribution,

@@ -738,6 +738,66 @@ describe('AcpChatStore prompt submission', () => {
     expect(cancelTurn).not.toHaveBeenCalled();
   });
 
+  describe('follow-up while working', () => {
+    function workingStoreQueuingPrompts() {
+      const state: SessionState = { ...idleState(), isGenerating: true, canCancel: true };
+      const sendPrompt = vi.fn(async (_prompt: unknown, _placement: unknown, promptId: string) => {
+        state.queuedPrompts = [
+          { id: 'earlier', text: 'earlier', createdAt: 0, updatedAt: 0 },
+          { id: promptId, text: 'follow-up', createdAt: 1, updatedAt: 1 },
+        ];
+        return { success: true, data: { queued: true } };
+      });
+      const changeQueuePromptOrder = vi.fn(async () => ({ success: true, data: undefined }));
+      const cancelTurn = vi.fn(async () => ({ success: true, data: undefined }));
+      const store = createStore(state, sendPrompt, { changeQueuePromptOrder, cancelTurn });
+      return { store, sendPrompt, changeQueuePromptOrder, cancelTurn };
+    }
+
+    it('moves the prompt to the front and cancels the turn when interrupting', async () => {
+      const { store, sendPrompt, changeQueuePromptOrder, cancelTurn } =
+        workingStoreQueuingPrompts();
+      const onAccepted = vi.fn();
+
+      store.submitPrompt('follow-up', [], undefined, onAccepted, { interrupt: true });
+
+      await vi.waitFor(() => expect(cancelTurn).toHaveBeenCalledTimes(1));
+      const promptId = sendPrompt.mock.calls[0][2];
+      expect(changeQueuePromptOrder).toHaveBeenCalledWith([promptId, 'earlier']);
+      expect(changeQueuePromptOrder.mock.invocationCallOrder[0]).toBeLessThan(
+        cancelTurn.mock.invocationCallOrder[0]
+      );
+      expect(onAccepted).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves the prompt queued without cancelling when not interrupting', async () => {
+      const { store, sendPrompt, changeQueuePromptOrder, cancelTurn } =
+        workingStoreQueuingPrompts();
+      const onAccepted = vi.fn();
+
+      store.submitPrompt('follow-up', [], undefined, onAccepted);
+
+      await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1));
+      expect(sendPrompt).toHaveBeenCalledTimes(1);
+      expect(changeQueuePromptOrder).not.toHaveBeenCalled();
+      expect(cancelTurn).not.toHaveBeenCalled();
+    });
+
+    it('does not cancel anything when an interrupting prompt starts immediately', async () => {
+      const changeQueuePromptOrder = vi.fn();
+      const cancelTurn = vi.fn();
+      const sendPrompt = vi.fn(async () => ({ success: true, data: { queued: false } }));
+      const store = createStore(idleState(), sendPrompt, { changeQueuePromptOrder, cancelTurn });
+      const onAccepted = vi.fn();
+
+      store.submitPrompt('hello', [], undefined, onAccepted, { interrupt: true });
+
+      await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1));
+      expect(changeQueuePromptOrder).not.toHaveBeenCalled();
+      expect(cancelTurn).not.toHaveBeenCalled();
+    });
+  });
+
   it('clears draft text and attachments on submit', async () => {
     const sendPrompt = vi.fn(async () => ({ success: true, data: { queued: false } }));
     const store = createStore(idleState(), sendPrompt);

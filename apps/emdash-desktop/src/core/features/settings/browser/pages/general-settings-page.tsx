@@ -1,5 +1,6 @@
 import { PageLayout, SettingsSection } from '@emdash/ui/react/patterns';
 import { AccountTab } from '../components/AccountTab';
+import { FollowUpModeRow } from '../components/FollowUpModeRow';
 import NotificationSettingsCard from '../components/NotificationSettingsCard';
 import {
   AutoGenerateTaskNamesRow,
@@ -40,6 +41,7 @@ export function GeneralSettingsPage() {
         <PreserveTaskNameCapitalizationRow />
         <IncludeIssueContextByDefaultRow />
         <EnableTmuxRow />
+        <FollowUpModeRow />
       </SettingsSection>
     </div>
   );
