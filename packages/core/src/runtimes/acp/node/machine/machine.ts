@@ -72,6 +72,8 @@ export function initialMachineState(conversationId: string): SessionMachineState
 export type Command =
   | { type: 'Prompt'; prompt: QueuedPrompt }
   | { type: 'QueuePrompt'; prompt: QueuedPrompt }
+  /** Folds the queue and `prompt` into one prompt that runs next, cancelling the active turn. */
+  | { type: 'InterruptWithPrompt'; prompt: QueuedPrompt }
   | { type: 'Cancel' }
   | { type: 'EditQueuedPrompt'; id: string; input: PromptInput; updatedAt: number }
   | { type: 'RemoveQueuedPrompt'; id: string }
@@ -89,6 +91,7 @@ export type DomainEvent =
   | { type: 'QueuedPromptEdited'; id: string; input: PromptInput; updatedAt: number }
   | { type: 'QueuedPromptRemoved'; id: string }
   | { type: 'QueueReordered'; ids: readonly string[] }
+  | { type: 'QueueReplaced'; prompts: readonly QueuedPrompt[] }
   | { type: 'TurnEnded'; outcome: TurnOutcome }
   | { type: 'AgentActivity'; active: boolean }
   | { type: 'AgentsChanged'; runningCount: number }
@@ -116,12 +119,7 @@ export function decide(
 ): Result<DomainEvent[], AcpRuntimeError> {
   switch (cmd.type) {
     case 'Prompt':
-      if (
-        s.phase.kind === 'working' ||
-        s.phase.kind === 'cancelling' ||
-        s.agentTurnActive ||
-        s.backgroundAgentCount > 0
-      ) {
+      if (isBusy(s)) {
         return ok([{ type: 'PromptQueued', prompt: cmd.prompt }]);
       }
       if (!isPromptReady(phaseToLifecycle(s.phase))) {
@@ -131,6 +129,15 @@ export function decide(
 
     case 'QueuePrompt':
       return ok([{ type: 'PromptQueued', prompt: cmd.prompt }]);
+
+    case 'InterruptWithPrompt': {
+      if (!isBusy(s)) return acpErr.invalidState('No active turn to interrupt');
+      const merged = mergePrompts([...s.queuedPrompts, cmd.prompt], cmd.prompt);
+      return ok([
+        { type: 'QueueReplaced', prompts: [merged] },
+        ...(s.phase.kind === 'cancelling' ? [] : [{ type: 'CancellationRequested' } as const]),
+      ]);
+    }
 
     case 'Cancel':
       if (s.phase.kind !== 'working' && !s.agentTurnActive && s.backgroundAgentCount === 0) {
@@ -250,6 +257,12 @@ export function evolve(
           ...s,
           queuedPrompts: s.queuedPrompts.filter((prompt) => prompt.id !== ev.id),
         },
+        effects: [{ type: 'state' }],
+      };
+
+    case 'QueueReplaced':
+      return {
+        state: { ...s, queuedPrompts: ev.prompts },
         effects: [{ type: 'state' }],
       };
 
@@ -391,6 +404,31 @@ function makeTurn(s: SessionMachineState): ControlTurn {
   return { id: makeTurnId(s.conversationId, s.nextTurnIndex) };
 }
 
+export function isBusy(s: SessionMachineState): boolean {
+  return (
+    s.phase.kind === 'working' ||
+    s.phase.kind === 'cancelling' ||
+    s.agentTurnActive ||
+    s.backgroundAgentCount > 0
+  );
+}
+
+/** Joins prompts in order into one prompt carrying `into`'s id and timestamps. */
+function mergePrompts(prompts: readonly QueuedPrompt[], into: QueuedPrompt): QueuedPrompt {
+  const join = (parts: (string | undefined)[]) =>
+    parts.filter((part): part is string => !!part?.trim()).join('\n\n');
+  const hiddenContext = join(prompts.map((prompt) => prompt.hiddenContext));
+  const attachments = prompts.flatMap((prompt) => prompt.attachments ?? []);
+  return {
+    id: into.id,
+    createdAt: into.createdAt,
+    updatedAt: into.updatedAt,
+    text: join(prompts.map((prompt) => prompt.text)),
+    ...(hiddenContext ? { hiddenContext } : {}),
+    ...(attachments.length > 0 ? { attachments } : {}),
+  };
+}
+
 function dequeuePromptEffects(queuedPrompts: readonly QueuedPrompt[]): {
   queuedPrompts: readonly QueuedPrompt[];
   effects: Effect[];
@@ -469,6 +507,9 @@ export class SessionMachine {
   }
   get backgroundAgentCount(): number {
     return this.machine.current().backgroundAgentCount;
+  }
+  get isBusy(): boolean {
+    return isBusy(this.machine.current());
   }
   get isWorking(): boolean {
     const phase = this.machine.current().phase;

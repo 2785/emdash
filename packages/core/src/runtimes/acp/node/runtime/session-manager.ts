@@ -387,6 +387,9 @@ export class SessionManager {
           return ok({ queued: true });
         }
       }
+      if (input.placement === 'interrupt') {
+        return await lease.value.cell.interrupt(input.prompt, acceptance);
+      }
       return await lease.value.cell.prompt(input.prompt, acceptance);
     } finally {
       await lease.release();

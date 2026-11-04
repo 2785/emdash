@@ -225,6 +225,74 @@ describe('SessionCell prompts', () => {
     });
   });
 });
+describe('SessionCell interrupt', () => {
+  it('folds queued prompts into the interrupting prompt and runs it after cancelling', async () => {
+    const { cell, agent } = makeCell();
+    let resolveFirst!: (value: { stopReason: 'cancelled' }) => void;
+    agent.prompt = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ stopReason: 'cancelled' }>((resolve) => {
+            resolveFirst = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ stopReason: 'end_turn' });
+    const first = cell.prompt({ text: 'first' });
+    await cell.prompt({ text: 'second' });
+    const onAccepted = vi.fn();
+
+    const interrupted = await cell.interrupt(
+      { text: 'third' },
+      { id: 'interrupt-1', onAccepted, resolvedAttachments: [] }
+    );
+
+    expect(interrupted).toEqual({ success: true, data: { queued: true } });
+    expect(onAccepted).toHaveBeenCalledWith({ queued: true });
+    expect(agent.cancel).toHaveBeenCalledTimes(1);
+    expect(cell.sessionState.lifecycle).toBe('cancelling');
+    expect(cell.sessionState.queuedPrompts).toMatchObject([
+      { id: 'interrupt-1', text: 'second\n\nthird' },
+    ]);
+
+    resolveFirst({ stopReason: 'cancelled' });
+    await first;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(cell.sessionState.queuedPrompts).toHaveLength(0);
+    expect(agent.prompt).toHaveBeenLastCalledWith({
+      sessionId: 'session-1',
+      prompt: [{ type: 'text', text: 'second\n\nthird' }],
+    });
+  });
+
+  it('does not cancel again while a cancellation is already in flight', async () => {
+    const { cell, agent } = makeCell();
+    agent.prompt = vi.fn(() => new Promise(() => {}));
+    void cell.prompt({ text: 'first' });
+    await cell.interrupt({ text: 'second' });
+
+    await cell.interrupt({ text: 'third' });
+
+    expect(agent.cancel).toHaveBeenCalledTimes(1);
+    expect(cell.sessionState.queuedPrompts).toMatchObject([{ text: 'second\n\nthird' }]);
+  });
+
+  it('sends immediately without cancelling when idle', async () => {
+    const { cell, agent } = makeCell();
+    agent.prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
+
+    const result = await cell.interrupt({ text: 'hello' });
+
+    expect(result).toMatchObject({ success: true, data: { queued: false } });
+    expect(agent.cancel).not.toHaveBeenCalled();
+    expect(agent.prompt).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      prompt: [{ type: 'text', text: 'hello' }],
+    });
+  });
+});
+
 describe('SessionCell provider results after disposal', () => {
   it('ignores a detached prompt result after disposal without starting the queue', async () => {
     const turn = deferred<{ stopReason: 'cancelled' }>();

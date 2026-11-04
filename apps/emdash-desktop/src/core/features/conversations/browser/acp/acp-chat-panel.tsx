@@ -294,7 +294,7 @@ const ComposerForStore = observer(function ComposerForStore({
 
   const handleSendQueuedPromptNow = useCallback(
     (id: string) => {
-      if (!store.affordances.isWorking || interruptOnFollowUp) {
+      if (!store.affordances.isWorking) {
         store.sendQueuedPromptNow(id);
         return;
       }
@@ -309,7 +309,7 @@ const ComposerForStore = observer(function ComposerForStore({
         }
       });
     },
-    [store, interruptOnFollowUp]
+    [store]
   );
 
   const handleAttach = useCallback(() => {

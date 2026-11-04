@@ -4,6 +4,7 @@ import {
   type AcpSessionStartMode,
   type PromptAttachment,
   type PromptInput,
+  type PromptPlacement,
   type ProviderConfigOption,
   type QueuedPrompt,
   type SessionMcpServer,
@@ -18,7 +19,7 @@ import {
 } from '@emdash/ui/react/components';
 import { toast } from '@emdash/ui/react/primitives';
 import type { BlobSource } from '@emdash/wire/rpc';
-import { action, computed, makeObservable, observable, reaction, runInAction, when } from 'mobx';
+import { action, computed, makeObservable, observable, reaction, runInAction } from 'mobx';
 import { getAgentsClient, hostRefFromConnectionId } from '@core/features/agents/api/browser/client';
 import {
   registerConversationCommands,
@@ -53,7 +54,6 @@ import {
   asValueSource,
 } from './acp-live-session';
 import { bindSessionTerminalOutputs } from './acp-terminal-output-binding';
-import { promoteQueuedPrompt } from './promote-queued-prompt';
 
 export interface AgentAffordances {
   isWorking: boolean;
@@ -63,8 +63,6 @@ export interface AgentAffordances {
   canSubmit: boolean;
   canCancel: boolean;
 }
-
-const INTERRUPT_QUEUE_SYNC_TIMEOUT_MS = 5_000;
 
 type StoredPromptAttachment = Extract<PromptAttachment, { type: 'attachment' }>;
 
@@ -445,21 +443,23 @@ export class AcpChatStore {
       this.chatState.scroll.set(pinMode);
     }
 
-    void this._submitPrompt(promptId, text, promptAttachments, hiddenContext).then((outcome) => {
-      if (outcome === 'queued' && options.interrupt) void this._interruptWithQueuedPrompt(promptId);
-      if (outcome === 'accepted' || outcome === 'queued') onAccepted?.();
-      if (outcome !== 'rejected') return;
-      runInAction(() => {
-        if (this._disposed || submissionSequence !== this._submissionSequence) return;
-        if (optimisticId && this.chatState.session.state.pendingPrompt?.id === optimisticId) {
-          this.chatState.session.setPendingPrompt(null);
-          this._syncMessageCount();
-        }
-        if (this.draftText !== '' || this.draftAttachments.length > 0) return;
-        this.composerModel.setText(text);
-        this.draftAttachments = attachments;
-      });
-    });
+    const placement = options.interrupt ? 'interrupt' : undefined;
+    void this._submitPrompt(promptId, text, promptAttachments, hiddenContext, placement).then(
+      (outcome) => {
+        if (outcome === 'accepted') onAccepted?.();
+        if (outcome !== 'rejected') return;
+        runInAction(() => {
+          if (this._disposed || submissionSequence !== this._submissionSequence) return;
+          if (optimisticId && this.chatState.session.state.pendingPrompt?.id === optimisticId) {
+            this.chatState.session.setPendingPrompt(null);
+            this._syncMessageCount();
+          }
+          if (this.draftText !== '' || this.draftAttachments.length > 0) return;
+          this.composerModel.setText(text);
+          this.draftAttachments = attachments;
+        });
+      }
+    );
   }
 
   setDraftText(text: string): void {
@@ -775,8 +775,9 @@ export class AcpChatStore {
     promptId: string,
     text: string,
     attachments: StoredPromptAttachment[],
-    hiddenContext?: string | Promise<string | undefined>
-  ): Promise<'accepted' | 'queued' | 'rejected' | 'unknown'> {
+    hiddenContext?: string | Promise<string | undefined>,
+    placement?: PromptPlacement
+  ): Promise<'accepted' | 'rejected' | 'unknown'> {
     if (this.hostAccess?.liveAction.kind === 'disabled') return 'rejected';
     const session = this.session;
     if (!session || !session.usable) {
@@ -801,7 +802,7 @@ export class AcpChatStore {
           ...(resolvedHiddenContext ? { hiddenContext: resolvedHiddenContext } : {}),
           ...(attachments.length > 0 ? { attachments } : {}),
         },
-        undefined,
+        placement,
         promptId
       );
       if (!result.success) {
@@ -814,7 +815,7 @@ export class AcpChatStore {
         this._toastError('Failed to send message', result.error);
         return 'rejected';
       }
-      return result.data.queued ? 'queued' : 'accepted';
+      return 'accepted';
     } catch (error) {
       if (error instanceof AcpPromptDeliveryUnknownError) {
         if (this._disposed) return 'unknown';
@@ -829,40 +830,23 @@ export class AcpChatStore {
     }
   }
 
-  /**
-   * The runtime confirms a queued prompt before the replicated session state includes it, so wait
-   * for the prompt to appear locally (or the turn to end) before promoting it.
-   */
-  private async _interruptWithQueuedPrompt(id: string): Promise<void> {
-    try {
-      await when(
-        () =>
-          this._disposed ||
-          !this.affordances.isWorking ||
-          this._queuedPromptModels().some((prompt) => prompt.id === id),
-        { timeout: INTERRUPT_QUEUE_SYNC_TIMEOUT_MS }
-      );
-    } catch {
-      this._toastError(
-        'Failed to interrupt; message stays queued',
-        new Error('Session state did not update in time')
-      );
+  private async _sendQueuedPromptNow(id: string): Promise<void> {
+    const current = this._queuedPromptModels();
+    if (!current.some((prompt) => prompt.id === id)) return;
+
+    const shouldCancelActiveTurn = this.affordances.isWorking;
+    const ids = [id, ...current.map((prompt) => prompt.id).filter((promptId) => promptId !== id)];
+    const reorderResult = await this.session?.changeQueuePromptOrder(ids);
+    if (!reorderResult?.success) {
+      this._toastError('Failed to send queued prompt', reorderResult?.error);
       return;
     }
-    if (this._disposed) return;
-    await this._sendQueuedPromptNow(id);
-  }
 
-  private async _sendQueuedPromptNow(id: string): Promise<void> {
-    const session = this.session;
-    if (!session) return;
-    const result = await promoteQueuedPrompt(
-      session,
-      this._queuedPromptModels().map((prompt) => prompt.id),
-      id,
-      this.affordances.isWorking
-    );
-    if (!result.success) this._toastError('Failed to send queued prompt', result.error);
+    if (!shouldCancelActiveTurn) return;
+    const cancelResult = await this.session?.cancelTurn();
+    if (!cancelResult?.success) {
+      this._toastError('Failed to send queued prompt', cancelResult?.error);
+    }
   }
 
   private async _exportTranscript(kind: 'parsed' | 'raw'): Promise<void> {

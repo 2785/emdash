@@ -88,6 +88,86 @@ describe('decide QueuePrompt', () => {
   });
 });
 
+describe('decide InterruptWithPrompt', () => {
+  const interrupting = { id: 'interrupt-1', text: 'stop, do this', createdAt: 300, updatedAt: 300 };
+
+  function withQueue(s: SessionMachineState, ...prompts: SessionMachineState['queuedPrompts']) {
+    return { ...s, queuedPrompts: prompts };
+  }
+
+  it('replaces the queue with one merged prompt and cancels the active turn', () => {
+    const queued = {
+      id: 'queued-1',
+      text: 'earlier',
+      hiddenContext: 'issue A',
+      attachments: [{ type: 'attachment' as const, id: 'a1', mimeType: 'image/png' as const }],
+      createdAt: 200,
+      updatedAt: 200,
+    };
+    const result = decide(withQueue(makeWorking(), queued), {
+      type: 'InterruptWithPrompt',
+      prompt: { ...interrupting, hiddenContext: 'issue B' },
+    });
+
+    expect(result).toEqual({
+      success: true,
+      data: [
+        {
+          type: 'QueueReplaced',
+          prompts: [
+            {
+              id: 'interrupt-1',
+              text: 'earlier\n\nstop, do this',
+              hiddenContext: 'issue A\n\nissue B',
+              attachments: queued.attachments,
+              createdAt: 300,
+              updatedAt: 300,
+            },
+          ],
+        },
+        { type: 'CancellationRequested' },
+      ],
+    });
+  });
+
+  it('runs the merged prompt as soon as the cancelled turn ends', () => {
+    let s = withQueue(makeWorking(), { ...prompt, id: 'queued-1', text: 'earlier' });
+    const result = decide(s, { type: 'InterruptWithPrompt', prompt: interrupting });
+    if (!isOk(result)) throw new Error('decide InterruptWithPrompt failed');
+    for (const ev of result.data) s = evolve(s, ev).state;
+    expect(s.phase.kind).toBe('cancelling');
+
+    const ended = evolve(s, {
+      type: 'TurnEnded',
+      outcome: { kind: 'stopped', stopReason: 'cancelled' },
+    });
+
+    expect(ended.state.queuedPrompts).toEqual([]);
+    expect(ended.effects).toContainEqual({
+      type: 'sendPrompt',
+      prompt: expect.objectContaining({ id: 'interrupt-1', text: 'earlier\n\nstop, do this' }),
+    });
+  });
+
+  it('merges without requesting another cancel while already cancelling', () => {
+    const working = makeWorking();
+    const cancelling = evolve(working, { type: 'CancellationRequested' }).state;
+
+    const result = decide(cancelling, { type: 'InterruptWithPrompt', prompt: interrupting });
+
+    expect(result).toEqual({
+      success: true,
+      data: [{ type: 'QueueReplaced', prompts: [interrupting] }],
+    });
+  });
+
+  it('rejects when there is no active turn', () => {
+    expect(isErr(decide(makeReady(), { type: 'InterruptWithPrompt', prompt: interrupting }))).toBe(
+      true
+    );
+  });
+});
+
 describe('lifecycle control', () => {
   it('starting -> replaying -> ready', () => {
     const s0 = initialMachineState(CONV_ID);
