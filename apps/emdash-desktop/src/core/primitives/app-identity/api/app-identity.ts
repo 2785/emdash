@@ -41,9 +41,10 @@ export function resolveAppIdentity({ dev, build }: { dev: boolean; build: string
     /**
      * Name passed to `app.setName`. Electron derives the safeStorage keychain entry
      * ("<name> Safe Storage") from it, so the personal build uses the stable name to decrypt
-     * secrets written by the official app in the shared data dir. Personal dev keeps its own.
+     * secrets written by the official app, both in the shared data dir and in dev data seeded
+     * from it (`pnpm run seed:dev`).
      */
-    RUNTIME_APP_NAME: isPersonal && !isPersonalDev ? 'Emdash' : productName,
+    RUNTIME_APP_NAME: isPersonal ? 'Emdash' : productName,
     UPDATE_CHANNEL: isCanary ? 'v1-canary' : 'v1-stable',
     ARTIFACT_PREFIX: appNameLower,
     IS_CANARY: isCanary,

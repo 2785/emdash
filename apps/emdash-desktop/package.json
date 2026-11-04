@@ -41,6 +41,7 @@
     "package:win": "pnpm run build && electron-builder --win --publish never --config electron-builder.config.ts",
     "package:personal": "node ../../tooling/scripts/ensure-packages-built.mjs && VITE_BUILD=personal electron-vite build && electron-builder --mac --publish never --config electron-builder.personal.config.ts",
     "install:personal": "bash scripts/install-personal.sh",
+    "seed:dev": "bash scripts/seed-dev-data.sh",
     "postinstall": "node --experimental-strip-types scripts/postinstall.ts",
     "rebuild": "electron-rebuild -f --only=better-sqlite3",
     "clean": "rm -rf node_modules dist",
