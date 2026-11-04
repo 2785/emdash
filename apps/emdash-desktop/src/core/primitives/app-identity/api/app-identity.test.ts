@@ -1,0 +1,43 @@
+import { describe, expect, it } from 'vitest';
+import { resolveAppIdentity } from './app-identity';
+import * as personalBuilderIdentity from './app-identity.personal';
+
+describe('resolveAppIdentity', () => {
+  it('keeps the stable identity by default', () => {
+    expect(resolveAppIdentity({ dev: false, build: undefined })).toMatchObject({
+      APP_ID: 'com.emdash.stable',
+      PRODUCT_NAME: 'Emdash',
+      RUNTIME_APP_NAME: 'Emdash',
+      USER_DATA_DIR_NAME: 'emdash',
+      IS_PERSONAL: false,
+    });
+  });
+
+  it('installs the personal build separately but shares data and keychain with stable', () => {
+    expect(resolveAppIdentity({ dev: false, build: 'personal' })).toMatchObject({
+      APP_ID: 'com.emdash.personal',
+      PRODUCT_NAME: 'Emdash Josh',
+      RUNTIME_APP_NAME: 'Emdash',
+      USER_DATA_DIR_NAME: 'emdash',
+      IS_PERSONAL: true,
+      IS_CANARY: false,
+    });
+  });
+
+  it('keeps canary isolated', () => {
+    expect(resolveAppIdentity({ dev: false, build: 'canary' })).toMatchObject({
+      RUNTIME_APP_NAME: 'Emdash Canary',
+      USER_DATA_DIR_NAME: 'emdash-canary',
+    });
+  });
+
+  it('matches the builder-side personal identity', () => {
+    const identity = resolveAppIdentity({ dev: false, build: 'personal' });
+    expect(personalBuilderIdentity).toMatchObject({
+      APP_ID: identity.APP_ID,
+      PRODUCT_NAME: identity.PRODUCT_NAME,
+      APP_NAME_LOWER: identity.APP_NAME_LOWER,
+      LINUX_DESKTOP_ID: identity.LINUX_DESKTOP_ID,
+    });
+  });
+});

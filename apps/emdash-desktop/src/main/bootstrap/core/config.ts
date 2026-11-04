@@ -4,6 +4,7 @@ import {
   APP_ID,
   IS_CANARY,
   PRODUCT_NAME,
+  RUNTIME_APP_NAME,
   UPDATE_CHANNEL,
   USER_DATA_DIR_NAME,
 } from '@core/primitives/app-identity/api/app-identity';
@@ -11,6 +12,7 @@ import {
 export type AppIdentityConfig = {
   appId: string;
   productName: string;
+  runtimeAppName: string;
   userDataDirName: string;
   updateChannel: string;
   isCanary: boolean;
@@ -77,6 +79,7 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     identity: {
       appId: APP_ID,
       productName: PRODUCT_NAME,
+      runtimeAppName: RUNTIME_APP_NAME,
       userDataDirName: USER_DATA_DIR_NAME,
       updateChannel: UPDATE_CHANNEL,
       isCanary: IS_CANARY,
