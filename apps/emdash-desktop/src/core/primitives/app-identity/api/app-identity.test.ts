@@ -24,6 +24,22 @@ describe('resolveAppIdentity', () => {
     });
   });
 
+  it('isolates personal dev runs from the installed personal app', () => {
+    expect(resolveAppIdentity({ dev: true, build: 'personal' })).toMatchObject({
+      PRODUCT_NAME: 'Emdash Josh Dev',
+      RUNTIME_APP_NAME: 'Emdash Josh Dev',
+      USER_DATA_DIR_NAME: 'emdash-josh-dev',
+      IS_PERSONAL: true,
+    });
+  });
+
+  it('keeps upstream dev runs on the existing dev data dir', () => {
+    expect(resolveAppIdentity({ dev: true, build: undefined })).toMatchObject({
+      PRODUCT_NAME: 'Emdash',
+      USER_DATA_DIR_NAME: 'emdash-dev',
+    });
+  });
+
   it('keeps canary isolated', () => {
     expect(resolveAppIdentity({ dev: false, build: 'canary' })).toMatchObject({
       RUNTIME_APP_NAME: 'Emdash Canary',

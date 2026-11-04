@@ -9,11 +9,12 @@ export function resolveAppIdentity({ dev, build }: { dev: boolean; build: string
   const pick = <T>(values: { stable: T; canary: T; personal: T }): T =>
     isPersonal ? values.personal : isCanary ? values.canary : values.stable;
 
-  const productName = pick({
-    stable: 'Emdash',
-    canary: 'Emdash Canary',
-    personal: 'Emdash Josh',
-  });
+  // Personal dev runs (`pnpm run dev`) get their own name and data so they can run next to the
+  // installed personal app.
+  const isPersonalDev = isPersonal && dev;
+  const productName = isPersonalDev
+    ? 'Emdash Josh Dev'
+    : pick({ stable: 'Emdash', canary: 'Emdash Canary', personal: 'Emdash Josh' });
   const appNameLower = pick({
     stable: 'emdash',
     canary: 'emdash-canary',
@@ -32,15 +33,17 @@ export function resolveAppIdentity({ dev, build }: { dev: boolean; build: string
       canary: 'emdash-canary',
       personal: 'emdash-josh',
     }),
-    USER_DATA_DIR_NAME: dev
-      ? 'emdash-dev'
-      : pick({ stable: 'emdash', canary: 'emdash-canary', personal: 'emdash' }),
+    USER_DATA_DIR_NAME: isPersonalDev
+      ? 'emdash-josh-dev'
+      : dev
+        ? 'emdash-dev'
+        : pick({ stable: 'emdash', canary: 'emdash-canary', personal: 'emdash' }),
     /**
      * Name passed to `app.setName`. Electron derives the safeStorage keychain entry
      * ("<name> Safe Storage") from it, so the personal build uses the stable name to decrypt
-     * secrets written by the official app in the shared data dir.
+     * secrets written by the official app in the shared data dir. Personal dev keeps its own.
      */
-    RUNTIME_APP_NAME: isPersonal ? 'Emdash' : productName,
+    RUNTIME_APP_NAME: isPersonal && !isPersonalDev ? 'Emdash' : productName,
     UPDATE_CHANNEL: isCanary ? 'v1-canary' : 'v1-stable',
     ARTIFACT_PREFIX: appNameLower,
     IS_CANARY: isCanary,
