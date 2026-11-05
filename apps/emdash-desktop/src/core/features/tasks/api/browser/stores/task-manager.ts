@@ -575,7 +575,7 @@ export class TaskManagerStore {
       const current = this.tasks.get(taskId);
       if (current && isUnprovisioned(current)) {
         current.transitionToProvisioned(
-          { ...current.data, lastInteractedAt: new Date().toISOString() },
+          current.data,
           result.data.path,
           result.data.workspaceId,
           result.data.sshConnectionId ?? undefined
@@ -606,12 +606,7 @@ export class TaskManagerStore {
     runInAction(() => {
       const current = this.tasks.get(taskId);
       if (current && isUnprovisioned(current)) {
-        current.transitionToProvisioned(
-          { ...current.data, lastInteractedAt: new Date().toISOString() },
-          path,
-          workspaceId,
-          sshConnectionId
-        );
+        current.transitionToProvisioned(current.data, path, workspaceId, sshConnectionId);
         current.activate();
       }
     });

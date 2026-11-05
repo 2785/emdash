@@ -246,3 +246,53 @@ describe('SidebarStore project ordering', () => {
     expect(store.sidebarRows).toEqual([{ kind: 'project', projectId: 'project-1' }]);
   });
 });
+
+describe('SidebarStore grouping', () => {
+  it('lists every task across projects in one sorted list when ungrouped', () => {
+    const store = new SidebarStore(
+      projectManagerWithTasks([
+        { id: 'project-a', createdAt: '2026-01-01T00:00:00.000Z', taskIds: ['a1', 'a2'] },
+        { id: 'project-b', createdAt: '2026-01-02T00:00:00.000Z', taskIds: ['b1', 'b2', 'b3'] },
+      ])
+    );
+    store.setGroupBy('none');
+
+    // Tasks are created at :00, :01, :02 within each project; newest first, ties by id.
+    expect(store.sidebarRows).toEqual([
+      { kind: 'task', projectId: 'project-b', taskId: 'b3' },
+      { kind: 'task', projectId: 'project-a', taskId: 'a2' },
+      { kind: 'task', projectId: 'project-b', taskId: 'b2' },
+      { kind: 'task', projectId: 'project-a', taskId: 'a1' },
+      { kind: 'task', projectId: 'project-b', taskId: 'b1' },
+    ]);
+    expect(store.visibleTaskEntries.map((entry) => entry.taskId)).toEqual([
+      'b3',
+      'a2',
+      'b2',
+      'a1',
+      'b1',
+    ]);
+  });
+
+  it('groups by project by default and remembers the choice', () => {
+    const store = new SidebarStore(projectManager([]));
+    const handle = mementoHandle({ ...workbenchSidebarDefault(), groupBy: 'project' });
+    store.attachMemento(handle);
+    expect(store.groupBy).toBe('project');
+
+    store.setGroupBy('none');
+
+    expect(handle.value.groupBy).toBe('none');
+  });
+});
+
+function workbenchSidebarDefault(): WorkbenchSidebarState {
+  return {
+    version: '1',
+    expandedProjectIds: [],
+    projectOrder: [],
+    taskOrderByProject: {},
+    taskSortBy: 'created-at',
+    groupBy: 'project',
+  };
+}

@@ -1,4 +1,5 @@
 import { observer } from 'mobx-react-lite';
+import { getProjectStore } from '@core/features/projects/api/browser/stores/project-selectors';
 import { projectViewDef } from '@core/features/projects/contributions/views';
 import { useAppSettingsKey } from '@core/features/settings/api/browser/use-app-settings-key';
 import {
@@ -29,8 +30,11 @@ import { SidebarMenuAction, SidebarMenuRow } from './sidebar-primitives';
 interface SidebarTaskItemProps {
   taskId: string;
   projectId: string;
-  /** Pinned strip uses tighter padding than tasks nested under a project. */
-  rowVariant?: 'underProject' | 'pinned';
+  /**
+   * Pinned strip uses tighter padding than tasks nested under a project; the ungrouped list
+   * also uses it and labels each task with its project.
+   */
+  rowVariant?: 'underProject' | 'pinned' | 'flat';
 }
 
 export const SidebarTaskItem = observer(function SidebarTaskItem({
@@ -110,7 +114,7 @@ export const SidebarTaskItem = observer(function SidebarTaskItem({
       <SidebarMenuRow
         className={cn(
           'group/row flex items-center justify-between px-1 py-1.5 h-8 gap-1',
-          rowVariant === 'pinned' ? 'pl-2' : 'pl-8'
+          rowVariant === 'underProject' ? 'pl-8' : 'pl-2'
         )}
         isActive={isActive}
         onMouseDown={(e) => e.preventDefault()}
@@ -128,6 +132,11 @@ export const SidebarTaskItem = observer(function SidebarTaskItem({
           >
             {taskName}
           </span>
+          {rowVariant === 'flat' && (
+            <span className="min-w-0 shrink-[2] truncate text-xs text-foreground-tertiary-passive">
+              {getProjectStore(projectId)?.name}
+            </span>
+          )}
         </SidebarMenuAction>
         <div className="ml-2 flex shrink-0 items-center justify-end gap-1.5">
           {showLineChanges && <TaskGitDiffStats task={task} />}

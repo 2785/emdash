@@ -484,7 +484,8 @@ export class TaskService implements Hookable<TaskLifecycleHooks> {
 
     await this.dependencies.db
       .update(tasks)
-      .set({ lastInteractedAt: sql`CURRENT_TIMESTAMP`, workspaceId: data.persistData.workspaceId })
+      // Opening a task isn't activity for "last used" ordering; agent status changes are.
+      .set({ workspaceId: data.persistData.workspaceId })
       .where(eq(tasks.id, taskId));
     appDbPokes.tasks.poke({ projectId: task.projectId, taskId });
   }

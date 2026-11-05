@@ -41,6 +41,8 @@ const ROW_HEIGHT = 32;
 
 export const SidebarVirtualList = observer(function SidebarVirtualList() {
   const rows = getSidebarStore().sidebarRows;
+  // Manual drag order is per project, so ungrouped lists only follow the sort.
+  const flat = getSidebarStore().groupBy === 'none';
   const { currentView } = useWorkspaceSlots();
   const taskParams = useViewParams(taskViewDef) ?? {
     projectId: undefined,
@@ -226,8 +228,17 @@ export const SidebarVirtualList = observer(function SidebarVirtualList() {
                 );
               }
               return (
-                <SortableRow key={`${row.projectId}:${row.taskId}`} dndId={dndId} style={vStyle}>
-                  <SidebarTaskItem projectId={row.projectId} taskId={row.taskId} />
+                <SortableRow
+                  key={`${row.projectId}:${row.taskId}`}
+                  dndId={dndId}
+                  style={vStyle}
+                  disabled={flat}
+                >
+                  <SidebarTaskItem
+                    projectId={row.projectId}
+                    taskId={row.taskId}
+                    rowVariant={flat ? 'flat' : 'underProject'}
+                  />
                 </SortableRow>
               );
             })}
@@ -359,12 +370,14 @@ function InsertionIndicator({ pointerY }: { pointerY: number | null }) {
 interface SortableRowProps {
   dndId: string;
   style: React.CSSProperties;
+  disabled?: boolean;
   children: React.ReactNode;
 }
 
-function SortableRow({ dndId, style, children }: SortableRowProps) {
+function SortableRow({ dndId, style, disabled, children }: SortableRowProps) {
   const { setNodeRef, transform, transition, isDragging, listeners } = useSortable({
     id: dndId,
+    disabled,
   });
 
   const combinedStyle: React.CSSProperties = {

@@ -14,6 +14,7 @@ import {
   unregisteredTaskData,
 } from '@core/primitives/task-state/browser/task-state';
 export type SidebarTaskSortBy = WorkbenchSidebarState['taskSortBy'];
+export type SidebarGroupBy = WorkbenchSidebarState['groupBy'];
 
 export type TaskSortKind = 'created' | 'updated';
 
@@ -85,6 +86,14 @@ export class SidebarStore {
     return this.state.taskSortBy;
   }
 
+  get groupBy(): SidebarGroupBy {
+    return this.state.groupBy ?? 'project';
+  }
+
+  setGroupBy(groupBy: SidebarGroupBy): void {
+    this.updateState((current) => ({ ...current, groupBy }));
+  }
+
   attachMemento(handle: MementoHandle<WorkbenchSidebarState>): void {
     if (this._handle) throw new Error('Sidebar memento is already attached');
     this._handle = handle;
@@ -104,6 +113,7 @@ export class SidebarStore {
   }
 
   get sidebarRows(): SidebarRow[] {
+    if (this.groupBy === 'none') return this.flatTaskRows();
     const rows: SidebarRow[] = [];
     for (const project of this.orderedProjects) {
       const projectId = project.id;
@@ -124,6 +134,22 @@ export class SidebarStore {
       }
     }
     return rows;
+  }
+
+  /** Every visible unpinned task across available projects, in one sorted list. */
+  private flatTaskRows(): SidebarRow[] {
+    const pairs: { projectId: string; task: TaskStore }[] = [];
+    for (const project of this.projectManager.projects.values()) {
+      const context = asAvailableProject(project);
+      if (!context) continue;
+      for (const task of context.get(taskManagerStoreToken).tasks.values()) {
+        if (isVisibleRegularTask(task) && !task.data.isPinned) {
+          pairs.push({ projectId: project.id, task });
+        }
+      }
+    }
+    pairs.sort((a, b) => this.compareSidebarTasks(a.task, b.task));
+    return pairs.map(({ projectId, task }) => ({ kind: 'task', projectId, taskId: task.data.id }));
   }
 
   /** Visible unpinned tasks in the same order they are rendered in the project tree. */

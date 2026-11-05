@@ -1,5 +1,5 @@
 import { isAttentionNotification } from '@emdash/core/runtimes/tui-agents/api';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
   type AgentEvent,
   type AgentStatus,
@@ -7,7 +7,8 @@ import {
 } from '@core/primitives/agents/api';
 import type { ConversationEvent } from '@core/primitives/conversations/api';
 import { HookCore, type Hookable } from '@core/primitives/hooks/api/hookable';
-import { conversations } from '@core/services/app-db/node/schema';
+import { appDbPokes } from '@core/services/app-db/node/pokes';
+import { conversations, tasks } from '@core/services/app-db/node/schema';
 import { getAppDb } from '@main/db/instance';
 import { log } from '@main/lib/logger';
 
@@ -89,6 +90,13 @@ export class AgentStatusService implements Hookable<AgentStatusServiceHooks> {
 
     if (status) {
       const derivedSeen = status === 'working' ? 1 : 0;
+      const [previous] = deliver
+        ? await getAppDb()
+            .select({ agentStatus: conversations.agentStatus })
+            .from(conversations)
+            .where(eq(conversations.id, signal.conversationId))
+            .limit(1)
+        : [];
       // Direct write is sanctioned: agent_status/agent_status_seen are a device-local
       // cache outside the registry's observation discipline (see schema comment).
       const [row] = await getAppDb()
@@ -108,6 +116,11 @@ export class AgentStatusService implements Hookable<AgentStatusServiceHooks> {
       if (row.projectId === null || row.taskId === null) return;
 
       context = { projectId: row.projectId, taskId: row.taskId, providerId: row.providerId };
+      // Live status changes (a prompt starting work, a turn finishing or needing the user) are
+      // what count as task activity for "last used" ordering; opening a task doesn't.
+      if (deliver && previous && previous.agentStatus !== status) {
+        await this.markTaskActive(row.projectId, row.taskId);
+      }
       publishConversationEvent({
         type: 'agent-status-changed',
         conversationId: signal.conversationId,
@@ -135,6 +148,14 @@ export class AgentStatusService implements Hookable<AgentStatusServiceHooks> {
         taskId: context.taskId,
       });
     }
+  }
+
+  private async markTaskActive(projectId: string, taskId: string): Promise<void> {
+    await getAppDb()
+      .update(tasks)
+      .set({ lastInteractedAt: sql`CURRENT_TIMESTAMP` })
+      .where(eq(tasks.id, taskId));
+    appDbPokes.tasks.poke({ projectId, taskId });
   }
 
   private async resetToIdleQueued(conversationId: string): Promise<void> {
