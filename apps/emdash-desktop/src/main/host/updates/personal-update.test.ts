@@ -29,11 +29,12 @@ vi.mock('@main/core/app/utils', () => ({ resolveAppVersion: vi.fn() }));
 
 const macAsset = { file: 'Emjosh-mac-arm64.zip', sha512: 'abc==', size: 123 };
 const linuxAsset = { file: 'Emjosh-linux-x64.AppImage', sha512: 'def==', size: 456 };
+const intelAsset = { file: 'Emjosh-mac-x64.zip', sha512: 'ghi==', size: 789 };
 const manifest = {
   version: '0.2.0',
   commit: '0123456789abcdef',
   releasedAt: '2026-11-05T00:00:00Z',
-  assets: { 'mac-arm64': macAsset, 'linux-x64': linuxAsset },
+  assets: { 'mac-arm64': macAsset, 'mac-x64': intelAsset, 'linux-x64': linuxAsset },
 };
 
 function makeService(overrides: Partial<PersonalUpdateDeps> = {}) {
@@ -105,7 +106,8 @@ describe('releasePlatform', () => {
   it('maps the platforms Emjosh is released for', () => {
     expect(releasePlatform('darwin', 'arm64')).toBe('mac-arm64');
     expect(releasePlatform('linux', 'x64')).toBe('linux-x64');
-    expect(releasePlatform('darwin', 'x64')).toBeNull();
+    expect(releasePlatform('darwin', 'x64')).toBe('mac-x64');
+    expect(releasePlatform('linux', 'arm64')).toBeNull();
     expect(releasePlatform('win32', 'x64')).toBeNull();
   });
 });
@@ -119,6 +121,10 @@ describe('PersonalUpdateService', () => {
     const linux = makeService({ platform: 'linux-x64' });
     await linux.service.check();
     expect(linux.deps.stage).toHaveBeenCalledWith(manifest, linuxAsset);
+
+    const intel = makeService({ platform: 'mac-x64' });
+    await intel.service.check();
+    expect(intel.deps.stage).toHaveBeenCalledWith(manifest, intelAsset);
   });
 
   it('skips releases without a build for this platform', async () => {

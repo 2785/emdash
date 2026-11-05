@@ -27,7 +27,8 @@ const config: Configuration = {
     // Signed afterwards with the local identity (scripts/package-personal.sh).
     identity: null,
     hardenedRuntime: false,
-    target: [{ target: 'dir', arch: ['arm64'] }],
+    // Intel builds come from scripts/package-personal-mac-x64.sh.
+    target: [{ target: 'dir', arch: [process.env.EMJOSH_MAC_ARCH === 'x64' ? 'x64' : 'arm64'] }],
     icon: 'src/assets/images/emjosh/emjosh.icns',
     extendInfo: {
       ...base.mac?.extendInfo,
