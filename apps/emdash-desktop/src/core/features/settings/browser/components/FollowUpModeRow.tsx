@@ -14,7 +14,7 @@ export const FollowUpModeRow: React.FC = () => {
   return (
     <SettingRow
       title="Messages sent while agent is working"
-      description="Queue them until the current turn ends, or interrupt: the running agent gets your message right away, merged with anything queued, and decides what to stop or let finish. Agents that can't take messages mid-turn stop and run it next. Applies to chat conversations."
+      description="Queue them until the current turn ends, or steer: the running agent gets your message right away, merged with anything queued, and adjusts course mid-turn. Agents that can't take messages mid-turn stop and run it next. Applies to chat conversations."
       control={
         <>
           <ResetToDefaultButton
@@ -33,7 +33,8 @@ export const FollowUpModeRow: React.FC = () => {
             </Select.Trigger>
             <Select.Content className="min-w-max">
               <Select.Item value="queue">Queue</Select.Item>
-              <Select.Item value="interrupt">Interrupt</Select.Item>
+              {/* Stored as 'interrupt', its original name. */}
+              <Select.Item value="interrupt">Steer</Select.Item>
             </Select.Content>
           </Select.Root>
         </>
