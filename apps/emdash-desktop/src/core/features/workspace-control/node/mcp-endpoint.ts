@@ -86,9 +86,104 @@ export function buildControlMcpServer(
           .string()
           .optional()
           .describe("Agent to run (e.g. 'claude'); defaults to the calling workspace's agent."),
+        initiativeId: z
+          .string()
+          .optional()
+          .describe(
+            "Initiative to put it in, e.g. the calling workspace's (see current_workspace)."
+          ),
       },
     },
     async (input) => json(await service.createWorkspace(caller, input))
+  );
+
+  server.registerTool(
+    'list_initiatives',
+    {
+      description:
+        'List initiatives: optional groups of workspaces across projects working towards one ' +
+        'goal (e.g. one change needing pull requests in several repositories).',
+      inputSchema: {},
+    },
+    async () => json(await service.listInitiatives())
+  );
+
+  server.registerTool(
+    'create_initiative',
+    {
+      description:
+        'Create an initiative grouping workspaces across projects. Includes the calling ' +
+        'workspace unless includeCallingWorkspace is false.',
+      inputSchema: {
+        name: z.string(),
+        workspaceIds: z.array(z.string()).optional(),
+        includeCallingWorkspace: z.boolean().optional(),
+      },
+    },
+    async (input) => json(await service.createInitiative(caller, input))
+  );
+
+  server.registerTool(
+    'add_to_initiative',
+    {
+      description: 'Move workspaces into an initiative.',
+      inputSchema: { initiativeId: z.string(), workspaceIds: z.array(z.string()).min(1) },
+    },
+    async (input) => json(await service.addToInitiative(input))
+  );
+
+  server.registerTool(
+    'remove_from_initiative',
+    {
+      description: 'Take workspaces out of their initiative.',
+      inputSchema: { workspaceIds: z.array(z.string()).min(1) },
+    },
+    async (input) => json(await service.removeFromInitiative(input))
+  );
+
+  server.registerTool(
+    'post_message',
+    {
+      description:
+        "Post to your initiative's message feed, for one workspace or everyone in it. Other " +
+        'workspaces read it with read_messages/wait_for_messages (or have it delivered when ' +
+        'the user enabled that). Use it to share decisions, contracts, and status.',
+      inputSchema: {
+        text: z.string(),
+        toWorkspaceId: z.string().optional().describe('Only this workspace; omit for everyone.'),
+        initiativeId: z.string().optional().describe("Defaults to the caller's initiative."),
+      },
+    },
+    async (input) => json(await service.postMessage(caller, input))
+  );
+
+  server.registerTool(
+    'read_messages',
+    {
+      description:
+        'Read messages for you in your initiative (to you or everyone, including app events ' +
+        'such as a workspace finishing its turn). Pass the last id you saw as afterId.',
+      inputSchema: {
+        afterId: z.string().optional(),
+        initiativeId: z.string().optional(),
+      },
+    },
+    async (input) => json(await service.readMessages(caller, input))
+  );
+
+  server.registerTool(
+    'wait_for_messages',
+    {
+      description:
+        'Wait until a message for you arrives in your initiative, then return the new ones ' +
+        '(empty after the timeout). Use it to coordinate with other workspaces.',
+      inputSchema: {
+        afterId: z.string().optional(),
+        timeoutSeconds: z.number().int().min(1).max(300).optional(),
+        initiativeId: z.string().optional(),
+      },
+    },
+    async (input) => json(await service.waitForMessages(caller, input))
   );
 
   return server;

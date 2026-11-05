@@ -8,6 +8,7 @@ import {
 import { startWorkspaceControl } from '@core/manifests/node/workspace-control';
 import { desktopDomainContracts } from '@core/manifests/shared/domain-contracts';
 import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
+import { agentStatusService } from '@main/core/agent-status/agent-status-service';
 import { controlEndpointFile } from '@main/core/workspace-control/endpoint-file';
 import type { DesktopRuntimes } from '@main/gateway/desktop-runtimes';
 import { log } from '@main/lib/logger';
@@ -64,6 +65,7 @@ export async function bootControllers(
             endpointFile: controlEndpointFile(),
             version: app.getVersion(),
             logger: log,
+            onAgentEvent: (handler) => agentStatusService.on('agent:event', handler),
           }
         );
         scope.add(() => endpoint.close());

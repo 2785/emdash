@@ -31,6 +31,7 @@ import { createEditorWireController } from '@core/features/editor/node/wire-cont
 import { createFilesWireController } from '@core/features/files/node/wire-controller';
 import type { GitCredentialsService } from '@core/features/github/api/node/services/git-credentials-service';
 import { createGithubWireController } from '@core/features/github/node/wire-controller';
+import { createInitiativesWireController } from '@core/features/initiatives/node/wire-controller';
 import { createIntegrationsWireController } from '@core/features/integrations/node/wire-controller';
 import type { IssueProviderRegistry } from '@core/features/issues/node/registry';
 import { createIssuesWireController } from '@core/features/issues/node/wire-controller';
@@ -115,6 +116,7 @@ import {
   type SettingsRuntimePort,
 } from '@core/services/settings/node/wire-controller';
 import { createSshWireController } from '@core/services/ssh/node/controller';
+import { getInitiativesService } from './initiatives';
 
 export type DesktopControllerContext = {
   readonly accountService: EmdashAccountService;
@@ -464,6 +466,9 @@ export const desktopNodeControllers = {
   },
   updates: {
     create: ({ updateOperations }) => createUpdatesWireController(updateOperations),
+  },
+  initiatives: {
+    create: ({ db }) => createInitiativesWireController(getInitiativesService(db)),
   },
   host: {
     create: ({ hostOperations }) => createDesktopHostWireController(hostOperations),

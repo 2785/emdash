@@ -4,7 +4,11 @@ import type { Logger } from '@emdash/shared/logger';
 import type { ContractClient } from '@emdash/wire/rpc';
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { conversationRegistryTable as conversations } from '@core/features/conversations/api/node/registry/conversation-registry';
-import { startAcpConversationSession } from '@core/features/conversations/node/wire-controller';
+import {
+  sendAcpConversationPrompt,
+  startAcpConversationSession,
+} from '@core/features/conversations/node/wire-controller';
+import type { InitiativeMessage } from '@core/features/initiatives/api/contract';
 import { generateRandom } from '@core/features/tasks/node/name-generation/generateTaskName';
 import {
   startControlMcpEndpoint,
@@ -24,6 +28,7 @@ import { selectCurrentPr } from '@core/services/pull-requests/api';
 import type { PullRequestsContract } from '@core/services/pull-requests/api/contract';
 import type { PullRequestsRegistration } from '@core/services/pull-requests/node/pull-requests-registration';
 import type { DesktopControllerContext } from './controllers';
+import { getInitiativesService } from './initiatives';
 
 const execFileAsync = promisify(execFile);
 
@@ -86,10 +91,100 @@ export async function startWorkspaceControl(
     endpointFile: string;
     version: string;
     logger: Logger;
+    /** Subscribes to live agent status events; returns the unsubscribe function. */
+    onAgentEvent?(
+      handler: (event: {
+        type: string;
+        taskId: string;
+        payload?: { notificationType?: string };
+      }) => void
+    ): () => void;
   }
 ): Promise<ControlMcpEndpoint> {
-  const log = extras.logger;
   const { db, taskService, telemetry, appSettings } = context;
+  const log = extras.logger;
+  const initiatives = getInitiativesService(db);
+
+  const taskNames = async (ids: string[]) =>
+    new Map(
+      (ids.length
+        ? await db
+            .select({ id: tasks.id, name: tasks.name })
+            .from(tasks)
+            .where(inArray(tasks.id, ids))
+        : []
+      ).map((row) => [row.id, row.name])
+    );
+
+  /** The chat conversation a task's agent works in: its initial one, else its first. */
+  const primaryConversation = async (taskId: string): Promise<string | null> => {
+    const rows = await db
+      .select({
+        id: conversations.id,
+        type: conversations.type,
+        initial: conversations.isInitialConversation,
+      })
+      .from(conversations)
+      .where(eq(conversations.taskId, taskId));
+    const chats = rows.filter((row) => row.type === 'acp');
+    return (chats.find((row) => row.initial) ?? chats[0])?.id ?? null;
+  };
+
+  // Push delivery: messages to a task in an initiative with pushMessages on are fed into its
+  // agent conversation, labelled as coming from a peer rather than the user.
+  const deliver = async (message: InitiativeMessage) => {
+    if (message.kind !== 'message') return;
+    const initiative = await initiatives.get(message.initiativeId);
+    if (!initiative?.pushMessages || initiative.archived) return;
+    const targets = message.toTaskId
+      ? [message.toTaskId]
+      : initiative.taskIds.filter((id) => id !== message.fromTaskId);
+    const names = await taskNames([
+      ...targets,
+      ...(message.fromTaskId ? [message.fromTaskId] : []),
+    ]);
+    const sender = message.fromTaskId ? `workspace "${names.get(message.fromTaskId)}"` : 'the user';
+    const text =
+      `[Initiative "${initiative.name}" message from ${sender}. It comes from the initiative ` +
+      `feed, not directly from the user; weigh it accordingly.]\n\n${message.body}`;
+    for (const taskId of targets) {
+      const conversationId = await primaryConversation(taskId);
+      if (!conversationId) continue;
+      const sent = await sendAcpConversationPrompt(context, conversationId, text);
+      if (!sent.success) log.warn('Initiative message delivery failed', { taskId });
+    }
+  };
+  const stopDelivery = initiatives.onChange((change) => {
+    if (change.type === 'message-posted') {
+      deliver(change.message).catch((error: unknown) =>
+        log.warn('Initiative message delivery failed', { error })
+      );
+    }
+  });
+
+  // App events: let a task's initiative know when its agent finishes, needs input, or fails.
+  const stopEvents = extras.onAgentEvent?.((event) => {
+    const what =
+      event.type === 'stop'
+        ? 'finished its turn'
+        : event.type === 'error'
+          ? 'stopped with an error'
+          : event.type === 'notification' && event.payload?.notificationType === 'permission_prompt'
+            ? 'is waiting for the user to approve something'
+            : null;
+    if (!what) return;
+    void (async () => {
+      const initiative = await initiatives.initiativeOfTask(event.taskId);
+      if (!initiative || initiative.archived) return;
+      const name = (await taskNames([event.taskId])).get(event.taskId) ?? 'A workspace';
+      await initiatives.post({
+        initiativeId: initiative.id,
+        fromTaskId: event.taskId,
+        kind: 'event',
+        body: `Workspace "${name}" ${what}.`,
+      });
+    })().catch((error: unknown) => log.warn('Initiative event failed', { error }));
+  });
 
   const repositoryPath = async (projectId: string): Promise<string | null> => {
     const [row] = await db
@@ -122,6 +217,7 @@ export async function startWorkspaceControl(
           lastInteractedAt: tasks.lastInteractedAt,
           workspaceKind: workspaces.kind,
           workspaceConfig: workspaces.config,
+          initiativeId: tasks.initiativeId,
         })
         .from(tasks)
         .innerJoin(projects, eq(projects.id, tasks.projectId))
@@ -166,6 +262,7 @@ export async function startWorkspaceControl(
         archived: row.archivedAt !== null,
         agentStatus: statusByTask.get(row.id) ?? null,
         lastActivityAt: row.lastInteractedAt,
+        initiativeId: row.initiativeId,
       }));
     },
 
@@ -263,10 +360,19 @@ export async function startWorkspaceControl(
     },
   };
 
-  return startControlMcpEndpoint({
+  deps.initiatives = initiatives;
+  const endpoint = await startControlMcpEndpoint({
     service: new WorkspaceControlService(deps),
     endpointFile: extras.endpointFile,
     version: extras.version,
     onError: (error) => log.warn('Workspace control endpoint error', { error }),
   });
+  return {
+    info: endpoint.info,
+    async close() {
+      stopDelivery();
+      stopEvents?.();
+      await endpoint.close();
+    },
+  };
 }

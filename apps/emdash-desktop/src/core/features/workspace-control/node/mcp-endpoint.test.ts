@@ -33,6 +33,7 @@ describe('control MCP endpoint', () => {
           archived: false,
           agentStatus: 'working',
           lastActivityAt: null,
+          initiativeId: null,
         },
       ],
       pullRequestForBranch: async () => null,
@@ -73,11 +74,18 @@ describe('control MCP endpoint', () => {
 
     const tools = (await client.listTools()).tools.map((tool) => tool.name).sort();
     expect(tools).toEqual([
+      'add_to_initiative',
       'archive_workspaces',
+      'create_initiative',
       'create_workspace',
       'current_workspace',
+      'list_initiatives',
       'list_projects',
       'list_workspaces',
+      'post_message',
+      'read_messages',
+      'remove_from_initiative',
+      'wait_for_messages',
     ]);
     const current = await client.callTool({ name: 'current_workspace', arguments: {} });
     expect(JSON.parse((current.content as { text: string }[])[0]!.text)).toMatchObject({

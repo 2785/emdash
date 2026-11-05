@@ -36,5 +36,6 @@ export function mapTaskRowToTask(
     type: (row.type as 'task' | 'automation-run') ?? 'task',
     automationRunId: row.automationRunId ?? undefined,
     automationRunMeta,
+    initiativeId: row.initiativeId ?? undefined,
   };
 }

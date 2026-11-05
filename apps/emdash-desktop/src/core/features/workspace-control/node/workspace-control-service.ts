@@ -1,3 +1,5 @@
+import type { Initiative, InitiativeMessage } from '@core/features/initiatives/api/contract';
+
 /**
  * Workspace control: what an agent (inside Emjosh today, any MCP client later) can do with
  * Emjosh's projects and workspaces. Transport-agnostic; the MCP endpoint is one adapter.
@@ -22,6 +24,7 @@ export type ControlWorkspace = {
   archived: boolean;
   agentStatus: string | null;
   lastActivityAt: string | null;
+  initiativeId: string | null;
   pullRequest: ControlPullRequest | null;
 };
 
@@ -32,7 +35,36 @@ export type CreateWorkspaceInput = {
   prompt?: string;
   /** Agent for the first conversation; defaults to the calling workspace's agent. */
   provider?: string;
+  /** Initiative to put the new workspace in. */
+  initiativeId?: string;
 };
+
+/** The initiative operations workspace control needs (see InitiativesService). */
+export type ControlInitiatives = {
+  list(): Promise<Initiative[]>;
+  get(id: string): Promise<Initiative | null>;
+  create(name: string): Promise<Initiative>;
+  setTaskInitiative(taskIds: string[], initiativeId: string | null): Promise<void>;
+  initiativeOfTask(taskId: string): Promise<Initiative | null>;
+  post(input: {
+    initiativeId: string;
+    fromTaskId: string | null;
+    toTaskId?: string | null;
+    kind?: 'message' | 'event';
+    body: string;
+  }): Promise<InitiativeMessage>;
+  messages(input: {
+    initiativeId: string;
+    forTaskId?: string;
+    afterId?: string;
+  }): Promise<InitiativeMessage[]>;
+  waitForMessages(
+    input: { initiativeId: string; forTaskId?: string; afterId?: string },
+    timeoutMs: number
+  ): Promise<InitiativeMessage[]>;
+};
+
+const MAX_WAIT_SECONDS = 300;
 
 /** Who is calling: the conversation an Emjosh agent runs in, or an external client. */
 export type ControlCaller = { conversationId: string | null };
@@ -50,6 +82,7 @@ export type WorkspaceControlDeps = {
     input: CreateWorkspaceInput & { provider: string | undefined }
   ): Promise<{ id: string; name: string; branch: string | null }>;
   onArchived?(caller: ControlCaller, workspaces: { id: string; name: string }[]): void;
+  initiatives?: ControlInitiatives;
 };
 
 export class WorkspaceControlService {
@@ -77,13 +110,18 @@ export class WorkspaceControlService {
     );
   }
 
-  async currentWorkspace(caller: ControlCaller): Promise<ControlWorkspace | null> {
-    const context = caller.conversationId
-      ? await this.deps.callerContext(caller.conversationId)
-      : null;
-    if (!context) return null;
+  async currentWorkspace(
+    caller: ControlCaller
+  ): Promise<(ControlWorkspace & { initiative: Initiative | null }) | null> {
+    const taskId = await this.callerTaskId(caller);
+    if (!taskId) return null;
     const all = await this.listWorkspaces({ includeArchived: true });
-    return all.find((workspace) => workspace.id === context.taskId) ?? null;
+    const workspace = all.find((candidate) => candidate.id === taskId);
+    if (!workspace) return null;
+    const initiative = workspace.initiativeId
+      ? ((await this.deps.initiatives?.get(workspace.initiativeId)) ?? null)
+      : null;
+    return { ...workspace, initiative };
   }
 
   /** Archives workspaces (reversible); never the caller's own. */
@@ -117,6 +155,117 @@ export class WorkspaceControlService {
     const context = caller.conversationId
       ? await this.deps.callerContext(caller.conversationId)
       : null;
-    return this.deps.createWorkspace({ ...input, provider: input.provider ?? context?.provider });
+    const created = await this.deps.createWorkspace({
+      ...input,
+      provider: input.provider ?? context?.provider,
+    });
+    if (input.initiativeId) {
+      const initiatives = this.requireInitiatives();
+      await initiatives.setTaskInitiative([created.id], input.initiativeId);
+      await initiatives.post({
+        initiativeId: input.initiativeId,
+        fromTaskId: context?.taskId ?? null,
+        kind: 'event',
+        body: `Workspace "${created.name}" was created${input.prompt ? ' and given a first task' : ''}.`,
+      });
+    }
+    return created;
+  }
+
+  // ── Initiatives ────────────────────────────────────────────────────────────
+
+  listInitiatives(): Promise<Initiative[]> {
+    return this.requireInitiatives().list();
+  }
+
+  /** Creates an initiative holding the given workspaces, plus the caller's unless excluded. */
+  async createInitiative(
+    caller: ControlCaller,
+    input: { name: string; workspaceIds?: string[]; includeCallingWorkspace?: boolean }
+  ): Promise<Initiative> {
+    const initiatives = this.requireInitiatives();
+    const initiative = await initiatives.create(input.name);
+    const taskId = await this.callerTaskId(caller);
+    const members = [
+      ...(input.includeCallingWorkspace !== false && taskId ? [taskId] : []),
+      ...(input.workspaceIds ?? []),
+    ];
+    if (members.length > 0)
+      await initiatives.setTaskInitiative([...new Set(members)], initiative.id);
+    return (await initiatives.get(initiative.id)) ?? initiative;
+  }
+
+  async addToInitiative(input: { initiativeId: string; workspaceIds: string[] }) {
+    await this.requireInitiatives().setTaskInitiative(input.workspaceIds, input.initiativeId);
+    return this.requireInitiatives().get(input.initiativeId);
+  }
+
+  async removeFromInitiative(input: { workspaceIds: string[] }) {
+    await this.requireInitiatives().setTaskInitiative(input.workspaceIds, null);
+    return { removed: input.workspaceIds };
+  }
+
+  /** Posts to the caller's initiative (or the given one), to everyone or one workspace. */
+  async postMessage(
+    caller: ControlCaller,
+    input: { text: string; toWorkspaceId?: string; initiativeId?: string }
+  ): Promise<InitiativeMessage> {
+    const { initiativeId, taskId } = await this.messagingScope(caller, input.initiativeId);
+    return this.requireInitiatives().post({
+      initiativeId,
+      fromTaskId: taskId,
+      toTaskId: input.toWorkspaceId ?? null,
+      body: input.text,
+    });
+  }
+
+  /** Messages for the caller: to it or everyone, not its own; only newer than `afterId`. */
+  async readMessages(
+    caller: ControlCaller,
+    input: { initiativeId?: string; afterId?: string }
+  ): Promise<InitiativeMessage[]> {
+    const { initiativeId, taskId } = await this.messagingScope(caller, input.initiativeId);
+    return this.requireInitiatives().messages({
+      initiativeId,
+      forTaskId: taskId ?? undefined,
+      afterId: input.afterId,
+    });
+  }
+
+  async waitForMessages(
+    caller: ControlCaller,
+    input: { initiativeId?: string; afterId?: string; timeoutSeconds?: number }
+  ): Promise<InitiativeMessage[]> {
+    const { initiativeId, taskId } = await this.messagingScope(caller, input.initiativeId);
+    const seconds = Math.min(Math.max(input.timeoutSeconds ?? 60, 1), MAX_WAIT_SECONDS);
+    return this.requireInitiatives().waitForMessages(
+      { initiativeId, forTaskId: taskId ?? undefined, afterId: input.afterId },
+      seconds * 1000
+    );
+  }
+
+  private async callerTaskId(caller: ControlCaller): Promise<string | null> {
+    if (!caller.conversationId) return null;
+    return (await this.deps.callerContext(caller.conversationId))?.taskId ?? null;
+  }
+
+  private async messagingScope(caller: ControlCaller, initiativeId: string | undefined) {
+    const taskId = await this.callerTaskId(caller);
+    const resolved =
+      initiativeId ??
+      (taskId ? (await this.requireInitiatives().initiativeOfTask(taskId))?.id : undefined);
+    if (!resolved) {
+      throw new Error(
+        taskId
+          ? 'This workspace is not in an initiative; create or join one first.'
+          : 'Pass an initiativeId.'
+      );
+    }
+    return { initiativeId: resolved, taskId };
+  }
+
+  private requireInitiatives(): ControlInitiatives {
+    if (!this.deps.initiatives) throw new Error('Initiatives are not available.');
+    return this.deps.initiatives;
   }
 }

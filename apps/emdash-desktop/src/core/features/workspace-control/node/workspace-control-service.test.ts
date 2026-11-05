@@ -15,6 +15,7 @@ function workspace(overrides: Partial<ControlWorkspace>): Omit<ControlWorkspace,
     archived: false,
     agentStatus: null,
     lastActivityAt: null,
+    initiativeId: null,
     ...overrides,
   };
 }
