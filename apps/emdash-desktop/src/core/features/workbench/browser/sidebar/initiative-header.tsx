@@ -1,4 +1,4 @@
-import { Button, DropdownMenu, MicroLabel } from '@emdash/ui/react/primitives';
+import { Button, DropdownMenu } from '@emdash/ui/react/primitives';
 import { MessagesSquare, MoreHorizontal } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
 import { getInitiativesClient } from '@core/features/initiatives/api/browser/client';
@@ -19,11 +19,11 @@ export const SidebarInitiativeHeader = observer(function SidebarInitiativeHeader
   const initiative = initiativeId ? getInitiativesStore().byId.get(initiativeId) : undefined;
 
   return (
-    <div className="group/initiative flex h-8 items-center justify-between gap-1 pr-2 pl-4">
-      <MicroLabel className="flex min-w-0 items-center gap-1.5 font-medium text-foreground-tertiary-muted">
+    <div className="group/initiative flex h-8 items-center justify-between gap-1 pt-1 pr-2 pl-3">
+      <div className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground-secondary">
         <span className="truncate">{label}</span>
-        <span className="text-foreground-tertiary-passive">{count}</span>
-      </MicroLabel>
+        <span className="text-xs font-normal text-foreground-tertiary-passive">{count}</span>
+      </div>
       {initiativeId && (
         <div className="flex items-center opacity-0 group-hover/initiative:opacity-100">
           <Button

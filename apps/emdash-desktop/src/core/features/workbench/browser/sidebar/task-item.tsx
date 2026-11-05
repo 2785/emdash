@@ -37,7 +37,8 @@ interface SidebarTaskItemProps {
    * Pinned strip uses tighter padding than tasks nested under a project; the ungrouped list
    * also uses it and labels each task with its project.
    */
-  rowVariant?: 'underProject' | 'pinned' | 'flat';
+  /** `flat` and `underInitiative` rows show the task's project, as the list mixes projects. */
+  rowVariant?: 'underProject' | 'pinned' | 'flat' | 'underInitiative';
 }
 
 export const SidebarTaskItem = observer(function SidebarTaskItem({
@@ -131,7 +132,11 @@ export const SidebarTaskItem = observer(function SidebarTaskItem({
       <SidebarMenuRow
         className={cn(
           'group/row flex items-center justify-between px-1 py-1.5 h-8 gap-1',
-          rowVariant === 'underProject' ? 'pl-8' : 'pl-2'
+          rowVariant === 'underProject'
+            ? 'pl-8'
+            : rowVariant === 'underInitiative'
+              ? 'pl-6'
+              : 'pl-2'
         )}
         isActive={isActive}
         onMouseDown={(e) => e.preventDefault()}
@@ -143,14 +148,15 @@ export const SidebarTaskItem = observer(function SidebarTaskItem({
         >
           <span
             className={cn(
-              'min-w-0 truncate text-left transition-colors',
+              'min-w-0 flex-1 truncate text-left transition-colors',
               task.isBootstrapping && 'text-foreground/40'
             )}
           >
             {taskName}
           </span>
-          {rowVariant === 'flat' && (
-            <span className="min-w-0 shrink-[2] truncate text-xs text-foreground-tertiary-passive">
+          {/* Right-aligned and kept whole: the name truncates first. */}
+          {(rowVariant === 'flat' || rowVariant === 'underInitiative') && (
+            <span className="max-w-[45%] shrink-0 truncate text-right text-xs text-foreground-tertiary-passive">
               {getProjectStore(projectId)?.name}
             </span>
           )}

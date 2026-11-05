@@ -52,6 +52,8 @@ describe('ActivityBadgeView', () => {
       onOpenScript?: (script: string) => void;
       onRetryPush?: () => void;
       onRetryScript?: (script: string) => void;
+      onDismiss?: () => void;
+      dismissedAt?: number | null;
     } = {}
   ) {
     await act(async () => {
@@ -61,6 +63,8 @@ describe('ActivityBadgeView', () => {
           onOpenScript={handlers.onOpenScript ?? (() => {})}
           onRetryPush={handlers.onRetryPush ?? (() => {})}
           onRetryScript={handlers.onRetryScript ?? (() => {})}
+          onDismiss={handlers.onDismiss}
+          dismissedAt={handlers.dismissedAt ?? null}
           now={NOW}
         />
       );
@@ -102,8 +106,8 @@ describe('ActivityBadgeView', () => {
     expect(badge()!.dataset.activityState).toBe('failed');
     expect(badge()!.className).toContain('destructive');
 
-    // Everything settled: quiet badge, still reachable.
-    await render([step('create-worktree', 'succeeded')]);
+    // Everything settled: quiet badge, still reachable for a while.
+    await render([step('create-worktree', 'succeeded', { finishedAt: NOW - 60_000 })]);
     expect(badge()!.dataset.activityState).toBe('settled');
     expect(badge()!.className).not.toContain('destructive');
   });
@@ -140,13 +144,17 @@ describe('ActivityBadgeView', () => {
 
   it('describes an adopted worktree and an existing branch distinctly', async () => {
     await render([
-      step('adopt-worktree', 'succeeded', { params: { branch: 'feature/x', path: '/tmp/wt' } }),
+      step('adopt-worktree', 'succeeded', {
+        finishedAt: NOW - 60_000,
+        params: { branch: 'feature/x', path: '/tmp/wt' },
+      }),
     ]);
     await openPopover();
     expect(rows()[0]!.textContent).toContain('Worktree with feature/x already exists at /tmp/wt');
 
     await render([
       step('create-worktree', 'succeeded', {
+        finishedAt: NOW - 60_000,
         params: { path: '/tmp/wt', branch: 'feature/x', branchCreated: false },
       }),
     ]);
@@ -214,5 +222,33 @@ describe('ActivityBadgeView', () => {
     );
     await act(async () => retry!.click());
     expect(onRetryScript).toHaveBeenCalledWith('setup');
+  });
+
+  it('hides itself a while after everything finished cleanly', async () => {
+    await render([step('create-worktree', 'succeeded', { finishedAt: NOW - 60_000 })]);
+    expect(badge()).not.toBeNull();
+
+    await render([step('create-worktree', 'succeeded', { finishedAt: NOW - 3 * 60_000 })]);
+    expect(badge()).toBeNull();
+  });
+
+  it('can be dismissed, failures included, until a step runs again', async () => {
+    const onDismiss = vi.fn();
+    const failed = step('push-branch', 'failed', { finishedAt: NOW - 60 * 60_000 });
+    await render([failed], { onDismiss });
+    await openPopover();
+    const dismiss = Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Dismiss'
+    );
+    await act(async () => dismiss!.click());
+    expect(onDismiss).toHaveBeenCalledOnce();
+
+    await render([failed], { dismissedAt: NOW - 30 * 60_000 });
+    expect(badge()).toBeNull();
+
+    await render([failed, step('run', 'running', { startedAt: NOW, finishedAt: null })], {
+      dismissedAt: NOW - 30 * 60_000,
+    });
+    expect(badge()).not.toBeNull();
   });
 });

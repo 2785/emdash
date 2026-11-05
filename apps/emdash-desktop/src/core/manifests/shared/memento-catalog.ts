@@ -4,6 +4,7 @@ import {
   workspaceChromeMemento,
 } from '@core/features/projects/contributions/mementos';
 import {
+  taskActivityDismissalMemento,
   taskChromeMemento,
   taskDiffPreferencesMemento,
   taskDiffSelectionMemento,
@@ -27,6 +28,7 @@ import { workbenchHistoryMemento } from '@core/primitives/navigation/api/memento
  * subject-level prefetch.
  */
 export const mementoCatalog: readonly MementoCatalogEntry[] = [
+  taskActivityDismissalMemento,
   acpDraftMemento,
   projectViewMemento,
   workspaceChromeMemento,

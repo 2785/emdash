@@ -928,32 +928,6 @@ export function ChatComposer({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {/* Image attachment previews */}
-        {imageAttachments.length > 0 && (
-          <div className={styles.attachmentStrip}>
-            {imageAttachments.map((att) => (
-              <div key={att.id} className={styles.attachmentThumb} data-attachment-thumb>
-                <button
-                  type="button"
-                  aria-label={`View image: ${att.name}`}
-                  onClick={() => onViewImage?.(att)}
-                  className={styles.attachmentThumbBtn}
-                >
-                  <img src={att.previewUrl} alt={att.name} className={styles.attachmentThumbImg} />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Remove ${att.name}`}
-                  onClick={() => removeAttachment(att.id)}
-                  className={styles.attachmentRemoveBtn}
-                >
-                  <X style={{ width: '0.625rem', height: '0.625rem' }} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Editor area */}
         <PromptEditor
           model={model}
@@ -986,6 +960,32 @@ export function ChatComposer({
           onCommand={onCommand}
           popupClassName={composerThemeScope}
         />
+        {/* Image attachment previews, below the text that references them */}
+        {imageAttachments.length > 0 && (
+          <div className={styles.attachmentStrip}>
+            {imageAttachments.map((att) => (
+              <div key={att.id} className={styles.attachmentThumb} data-attachment-thumb>
+                <button
+                  type="button"
+                  aria-label={`View image: ${att.name}`}
+                  onClick={() => onViewImage?.(att)}
+                  className={styles.attachmentThumbBtn}
+                >
+                  <img src={att.previewUrl} alt={att.name} className={styles.attachmentThumbImg} />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${att.name}`}
+                  onClick={() => removeAttachment(att.id)}
+                  className={styles.attachmentRemoveBtn}
+                >
+                  <X style={{ width: '0.625rem', height: '0.625rem' }} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Toolbar */}
         <div className={styles.toolbar}>
           {/* Left: agent + model selector */}

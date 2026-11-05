@@ -17,7 +17,12 @@ export type ControlEndpointInfo = { url: string; token: string };
 export const CONTROL_MCP_INSTRUCTIONS = `You are running in an Emjosh workspace: a branch and worktree of one repository with its own agent chat. These tools manage workspaces and initiatives (groups of workspaces across repositories working towards one goal). Use them as described below without waiting to be asked.
 
 - Name your workspace once, first. New workspaces get placeholder names such as "dull-geese-try". As soon as you understand the task, before starting the work, call rename_workspace with a short name for it (for example "remove-sandbox-access-expiry"). Later messages are almost always follow-ups to that work (corrections, details, related questions), so keep the name; rename again only if the user asks, or the conversation has pivoted to something with nothing in common with what the workspace started as.
-- Split work across repositories into an initiative. When the task also needs changes in other repositories (an API and its UI, a library and its users), don't make those changes from this workspace. Call current_workspace; if it has no initiative, create one with create_initiative (it includes this workspace). Then, for each other repository (find it with list_projects), call create_workspace with that initiativeId and a self-contained prompt: the goal, that repository's part, and any contract the parts must agree on (API shapes, field names, rollout order). Coordinate with post_message and wait_for_messages, and tell the user which workspaces you started.
+- Split work across repositories into an initiative. When the task also needs changes in other repositories (an API and its UI, a library and its users), don't make those changes from this workspace; you lead, and a workspace per repository does its part:
+  - Call current_workspace. If it has no initiative, create one with create_initiative (it includes this workspace and delivers messages into every member's chat). If it has one, make sure its pushMessages is true, or call set_message_delivery, so the others actually receive what you send.
+  - For each other repository (find it with list_projects), call create_workspace with that initiativeId and a self-contained prompt: the goal, that repository's part, the contract the parts must agree on (API shapes, field names, rollout order), that it belongs to the initiative led by your workspace (give your workspace id), and that it should post_message to you when it is done, blocked, or needs a decision. Tell the user which workspaces you started.
+  - Coordinate through the initiative: post_message changes of plan to the workspace concerned. With delivery on, their reports arrive in your chat as new messages, even after your turn ends, so you don't need to poll; call wait_for_messages only when you can't continue without an answer. App events in the feed tell you when a workspace finished a turn, needs approval, or failed.
+  - Don't do another workspace's work on its branch. If one seems stuck or silent, check list_workspaces (agent status) and read_messages, message it, and ask the user before taking over its work.
+- If you were started as part of an initiative (current_workspace shows one and your first prompt names a lead), do your part, post_message to the lead when you finish, get blocked, or need a decision, and check read_messages before ending a turn so instructions sent mid-turn aren't missed.
 - Keep work that belongs in this repository here; don't create workspaces for it.
 - Waiting on something outside this chat (CI pipelines, deploys, reviews, another workspace): nothing tells you when it finishes, and once your turn ends nobody is watching it. Run a background shell loop that checks every 30 to 60 seconds and exits when it is done or after a time limit (about 45 minutes), so its exit is what wakes you, for example \`until <check>; do sleep 30; done\`. Don't end your turn to wait, and don't schedule long or repeated wakeups to poll: each one re-reads the whole conversation.
 - If current_workspace returns null, you are not running inside an Emjosh workspace, and the points above about workspaces and initiatives don't apply.`;
@@ -146,14 +151,36 @@ export function buildControlMcpServer(
     {
       description:
         'Create an initiative grouping workspaces across projects. Includes the calling ' +
-        'workspace unless includeCallingWorkspace is false.',
+        'workspace unless includeCallingWorkspace is false. Messages are delivered into the ' +
+        "members' chats unless pushMessages is false.",
       inputSchema: {
         name: z.string(),
         workspaceIds: z.array(z.string()).optional(),
         includeCallingWorkspace: z.boolean().optional(),
+        pushMessages: z
+          .boolean()
+          .optional()
+          .describe(
+            "Deliver messages into members' chats (default true). Without it, a workspace " +
+              'only sees messages when it calls read_messages or wait_for_messages.'
+          ),
       },
     },
     async (input) => json(await service.createInitiative(caller, input))
+  );
+
+  server.registerTool(
+    'set_message_delivery',
+    {
+      description:
+        "Turn delivery of an initiative's messages into its workspaces' chats on or off. With " +
+        'it off, a workspace only sees messages when it calls read_messages or wait_for_messages.',
+      inputSchema: {
+        enabled: z.boolean(),
+        initiativeId: z.string().optional().describe("Defaults to the caller's initiative."),
+      },
+    },
+    async (input) => json(await service.setMessageDelivery(caller, input))
   );
 
   server.registerTool(

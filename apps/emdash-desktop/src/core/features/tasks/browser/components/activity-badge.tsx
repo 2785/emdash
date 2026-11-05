@@ -2,12 +2,14 @@ import { ScriptStatus, type ScriptStatusKind } from '@emdash/ui/react/components
 import { Popover, Spinner, toast } from '@emdash/ui/react/primitives';
 import { Activity, RotateCcw } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   asAvailableProject,
   getProjectStore,
 } from '@core/features/projects/api/browser/stores/project-selectors';
 import { getTaskStore } from '@core/features/tasks/api/browser/task-state/task-selectors';
+import { taskActivityDismissalMemento } from '@core/features/tasks/contributions/mementos';
+import { taskSubject } from '@core/features/tasks/contributions/subject';
 import {
   useTaskComposition,
   useWorkspace,
@@ -17,6 +19,7 @@ import {
   getWorkspaceRegistryWireClient,
 } from '@core/features/workspaces/api/browser/client';
 import { lifecycleScriptsStoreToken } from '@core/features/workspaces/contributions/browser/workspace-stores';
+import { getMementoClient } from '@core/primitives/mementos/browser';
 import { projectHostRef } from '@core/primitives/projects/api';
 import { cn } from '@core/primitives/styling/browser/cn';
 import type { WorkspaceLifecycleStepInfo } from '@core/primitives/tasks/api';
@@ -107,6 +110,45 @@ function relativeLabel(timestamp: number, now: number): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+/** How long the badge stays up after everything finished successfully. */
+export const SETTLED_BADGE_MS = 2 * 60_000;
+
+function displayedSteps(steps: WorkspaceLifecycleStepInfo[]) {
+  // fetch-refs is durable but advisory — never displayed; skipped steps are hidden.
+  return steps.filter(
+    (
+      step
+    ): step is WorkspaceLifecycleStepInfo & {
+      status: Exclude<WorkspaceLifecycleStepInfo['status'], 'skipped'>;
+    } => step.id !== 'fetch-refs' && step.status !== 'skipped'
+  );
+}
+
+/** When the latest displayed step happened, or null when none has. */
+export function lastActivityAt(steps: WorkspaceLifecycleStepInfo[]): number | null {
+  const times = displayedSteps(steps)
+    .map(stepTimestamp)
+    .filter((time): time is number => time !== null);
+  return times.length > 0 ? Math.max(...times) : null;
+}
+
+/**
+ * Whether the badge shows: always while a step runs; otherwise until the user dismisses it
+ * (failures included), and after a clean finish only for {@link SETTLED_BADGE_MS}.
+ */
+export function isActivityBadgeVisible(
+  steps: WorkspaceLifecycleStepInfo[],
+  { now, dismissedAt }: { now: number; dismissedAt: number | null }
+): boolean {
+  const shown = displayedSteps(steps);
+  if (shown.length === 0) return false;
+  if (shown.some((step) => step.status === 'running' || step.status === 'pending')) return true;
+  const last = lastActivityAt(steps);
+  if (dismissedAt !== null && (last === null || dismissedAt >= last)) return false;
+  if (shown.some((step) => step.status === 'failed')) return true;
+  return last !== null && now - last < SETTLED_BADGE_MS;
+}
+
 export type ActivityBadgeViewProps = {
   steps: WorkspaceLifecycleStepInfo[];
   onOpenScript: (script: ScriptStepId) => void;
@@ -117,6 +159,9 @@ export type ActivityBadgeViewProps = {
   retryingScript?: ScriptStepId | null;
   /** Test seam: relative labels are pure given a fixed now. */
   now?: number;
+  dismissedAt?: number | null;
+  /** Hides the badge until a step runs again. */
+  onDismiss?: () => void;
 };
 
 export function ActivityBadgeView({
@@ -127,15 +172,11 @@ export function ActivityBadgeView({
   onRetryScript,
   retryingScript = null,
   now = Date.now(),
+  dismissedAt = null,
+  onDismiss,
 }: ActivityBadgeViewProps) {
-  // fetch-refs is durable but advisory — never displayed; skipped steps are hidden.
-  const visible = steps.filter(
-    (
-      step
-    ): step is WorkspaceLifecycleStepInfo & {
-      status: Exclude<WorkspaceLifecycleStepInfo['status'], 'skipped'>;
-    } => step.id !== 'fetch-refs' && step.status !== 'skipped'
-  );
+  if (!isActivityBadgeVisible(steps, { now, dismissedAt })) return null;
+  const visible = displayedSteps(steps);
   if (visible.length === 0) return null;
 
   const running = visible.some((step) => step.status === 'running' || step.status === 'pending');
@@ -239,6 +280,16 @@ export function ActivityBadgeView({
             </div>
           );
         })}
+        {onDismiss && !running && (
+          <div className="mt-1 flex justify-end border-t border-border pt-1.5">
+            <Popover.Close
+              onClick={onDismiss}
+              className="rounded-md px-1.5 py-0.5 text-[11px] text-foreground-muted transition-colors hover:text-foreground"
+            >
+              Dismiss
+            </Popover.Close>
+          </div>
+        )}
       </Popover.Content>
     </Popover.Root>
   );
@@ -256,7 +307,21 @@ export const ActivityBadge = observer(function ActivityBadge({
   const taskView = useTaskComposition();
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryingScript, setRetryingScript] = useState<ScriptStepId | null>(null);
+  const dismissal = useMemo(
+    () => getMementoClient().subject(taskSubject({ taskId })).handle(taskActivityDismissalMemento),
+    [taskId]
+  );
   const steps = taskStore?.workspaceLifecycle;
+  const last = steps ? lastActivityAt(steps) : null;
+  // Re-render when a clean finish's display window ends, so the badge hides itself.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (last === null) return;
+    const remaining = last + SETTLED_BADGE_MS - Date.now();
+    if (remaining <= 0) return;
+    const timer = setTimeout(() => setTick((tick) => tick + 1), remaining + 50);
+    return () => clearTimeout(timer);
+  }, [last]);
   if (!taskStore || !steps) return null;
 
   // The same drawer-activation path the script pill used: focus the script's
@@ -326,6 +391,9 @@ export const ActivityBadge = observer(function ActivityBadge({
       isRetryingPush={isRetrying}
       onRetryScript={(script) => void retryScript(script)}
       retryingScript={retryingScript}
+      now={Date.now()}
+      dismissedAt={dismissal.value.dismissedAt ?? null}
+      onDismiss={() => dismissal.update((state) => ({ ...state, dismissedAt: Date.now() }))}
     />
   );
 });

@@ -30,8 +30,9 @@ problems to them.
   agents create and fill them.
 - **Workspaces talking to each other.** Each initiative has a message feed: agents post to
   everyone or one workspace and read or wait for replies; Emjosh adds events (a workspace
-  finished, needs approval, failed). Optionally, messages are delivered straight into each
-  workspace's chat, labelled as coming from a peer.
+  finished, needs approval, failed). Messages can be delivered straight into each workspace's
+  chat, labelled as coming from a peer: on for initiatives agents create, and a toggle in the
+  initiative's menu.
 - **External agents.** Settings → General → *Connect an external agent* copies a
   `claude mcp add` command so a `claude` outside Emjosh can use the same tools while Emjosh
   is open.

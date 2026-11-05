@@ -87,12 +87,15 @@ describe('control MCP endpoint', () => {
       'read_messages',
       'remove_from_initiative',
       'rename_workspace',
+      'set_message_delivery',
       'wait_for_messages',
     ]);
     // Clients such as Claude Code put these into the agent's system prompt.
     expect(client.getInstructions()).toContain('call rename_workspace');
     expect(client.getInstructions()).toContain('create_initiative');
     expect(client.getInstructions()).toContain('background shell loop');
+    expect(client.getInstructions()).toContain('set_message_delivery');
+    expect(client.getInstructions()).toContain("Don't do another workspace's work on its branch");
     const current = await client.callTool({ name: 'current_workspace', arguments: {} });
     expect(JSON.parse((current.content as { text: string }[])[0]!.text)).toMatchObject({
       id: 't1',
