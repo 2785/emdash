@@ -413,6 +413,13 @@ export function isBusy(s: SessionMachineState): boolean {
   );
 }
 
+/** Joins prompts in order into one prompt carrying the last one's id and timestamps. */
+export function mergeQueuedPrompts(prompts: readonly QueuedPrompt[]): QueuedPrompt {
+  const last = prompts.at(-1);
+  if (!last) throw new Error('mergeQueuedPrompts needs at least one prompt');
+  return mergePrompts(prompts, last);
+}
+
 /** Joins prompts in order into one prompt carrying `into`'s id and timestamps. */
 function mergePrompts(prompts: readonly QueuedPrompt[], into: QueuedPrompt): QueuedPrompt {
   const join = (parts: (string | undefined)[]) =>

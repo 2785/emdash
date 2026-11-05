@@ -224,6 +224,7 @@ function materializerHarness(
     normalize: (update) => update as never,
     agent: harness.agent,
     supportsLoadSession: true,
+    supportsSteering: false,
     mcpCapabilities: { http: false, sse: false },
   };
   const release = vi.fn(async () => {});

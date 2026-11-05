@@ -25,6 +25,8 @@ export interface SessionCellDeps {
   providerId: string;
   acpSessionId: string;
   agent: AcpAgentApi;
+  /** The agent can take a message into its running turn (`_session/steering`). */
+  supportsSteering?: boolean;
   resolveAttachment: ResolvePromptAttachment;
   logger: Logger;
   callbacks?: SessionCellCallbacks;

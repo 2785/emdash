@@ -33,6 +33,8 @@ export interface AcpAgentConnection {
   agent: AcpAgentApi;
   normalize: AcpSessionUpdateNormalizer;
   supportsLoadSession: boolean;
+  /** The agent can take a message into its running turn (`_session/steering`). */
+  supportsSteering: boolean;
   mcpCapabilities: Required<Pick<McpCapabilities, 'http' | 'sse'>>;
 }
 
@@ -116,6 +118,9 @@ export async function createAcpAgentConnection(
       processClosed.then(failClosedBeforeReady),
     ]);
     const supportsLoadSession = initialized.agentCapabilities?.loadSession === true;
+    const steeringMeta = (initialized._meta as { steering?: { supported?: unknown } } | undefined)
+      ?.steering;
+    const supportsSteering = steeringMeta?.supported === true && !!connection.extMethod;
     const mcpCapabilities = {
       http: initialized.agentCapabilities?.mcpCapabilities?.http === true,
       sse: initialized.agentCapabilities?.mcpCapabilities?.sse === true,
@@ -125,7 +130,13 @@ export async function createAcpAgentConnection(
       if (connectionScope.disposed) return;
       onClosed(exitCodeFromClosed(closed));
     });
-    return ok({ agent: connection, normalize, supportsLoadSession, mcpCapabilities });
+    return ok({
+      agent: connection,
+      normalize,
+      supportsLoadSession,
+      supportsSteering,
+      mcpCapabilities,
+    });
   } catch (e) {
     logger.error('createAcpAgentConnection: initialize failed', {
       error: e instanceof Error ? e.message : String(e),

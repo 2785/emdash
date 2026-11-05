@@ -320,6 +320,56 @@ describe('SessionCell interrupt', () => {
   });
 });
 
+describe('SessionCell steering', () => {
+  function makeSteeringCell(outcome: string) {
+    const agent = new FakeAcpAgent();
+    agent.prompt = vi.fn(() => new Promise(() => {}));
+    const extMethod = vi.fn(async () => ({ outcome }));
+    Object.assign(agent, { extMethod });
+    const { cell } = makePendingCell(agent, { supportsSteering: true });
+    cell.applySessionReady();
+    return { cell, agent, extMethod };
+  }
+
+  it('hands the message and the queue to the running turn instead of cancelling it', async () => {
+    const { cell, agent, extMethod } = makeSteeringCell('injected');
+    void cell.prompt({ text: 'build the feature' });
+    await cell.prompt({ text: 'also update docs' });
+
+    const result = await cell.interrupt(
+      { text: 'actually skip the tests' },
+      { id: 'steer-1', onAccepted: vi.fn(), resolvedAttachments: [] }
+    );
+
+    expect(result).toEqual({ success: true, data: { queued: false } });
+    expect(extMethod).toHaveBeenCalledWith('_session/steering', {
+      sessionId: 'session-1',
+      prompt: [{ type: 'text', text: 'also update docs\n\nactually skip the tests' }],
+      _meta: { steering: { idleBehavior: 'promptRequired' } },
+    });
+    expect(agent.cancel).not.toHaveBeenCalled();
+    expect(cell.sessionState).toMatchObject({ lifecycle: 'working', queuedPrompts: [] });
+    expect(cell.history().active?.items).toContainEqual(
+      expect.objectContaining({
+        kind: 'message',
+        text: 'also update docs\n\nactually skip the tests',
+      })
+    );
+  });
+
+  it('falls back to cancel-and-run-next when the agent has no running turn to steer', async () => {
+    const { cell, agent, extMethod } = makeSteeringCell('promptRequired');
+    void cell.prompt({ text: 'build the feature' });
+
+    const result = await cell.interrupt({ text: 'stop and do this' });
+
+    expect(extMethod).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ success: true, data: { queued: true } });
+    expect(agent.cancel).toHaveBeenCalledTimes(1);
+    expect(cell.sessionState.queuedPrompts).toMatchObject([{ text: 'stop and do this' }]);
+  });
+});
+
 describe('SessionCell provider results after disposal', () => {
   it('ignores a detached prompt result after disposal without starting the queue', async () => {
     const turn = deferred<{ stopReason: 'cancelled' }>();
