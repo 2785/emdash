@@ -68,8 +68,12 @@ problems to them.
   from Emdash releases.
 - **Reload button.** Rebuild, then click *Reload* in the sidebar (or Emjosh → Reload Emjosh)
   to restart on the new build.
-- **No Emdash branding or services.** No Emdash account, feedback, update, or docs surfaces,
-  and local builds carry no telemetry key, so nothing is sent.
+- **No Emdash branding or services.** Emjosh never contacts Emdash's servers: no Emdash
+  account (sessions copied from Emdash aren't sent anywhere), telemetry, feedback, updates, or
+  docs. GitHub connects through the `gh` CLI's login and GitLab through an access token, not
+  Emdash's OAuth apps. Remote (SSH) hosts need a workspace-server download location, which
+  Emdash hosts and Emjosh doesn't yet, so they are off unless you set
+  `EMDASH_WORKSPACE_SERVER_ARTIFACTS_URL`.
 
 ## Install
 

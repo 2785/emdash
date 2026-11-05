@@ -35,6 +35,15 @@ describe('workspace-server installer command', () => {
     ).toThrow(expect.objectContaining({ code: 'artifact-download-failed' }));
   });
 
+  it('explains that remote hosts are unavailable without a download location', () => {
+    expect(() => buildWorkspaceServerInstallCommand('', '1.2.3')).toThrow(
+      expect.objectContaining({
+        code: 'artifact-download-failed',
+        message: expect.stringContaining('No workspace-server download location'),
+      })
+    );
+  });
+
   it('builds the stable channel pointer command for the desktop protocol major', () => {
     const command = buildWorkspaceServerChannelPointerCommand(
       'https://releases.example.test/workspace-server',

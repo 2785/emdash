@@ -17,7 +17,8 @@ const mockExecuteOAuthFlow = vi.fn();
 const mockDispatch = vi.fn().mockResolvedValue(undefined);
 const mockSupports = vi.fn((provider: string) => provider === 'github' || provider === 'gitlab');
 
-vi.mock('../config', () => ({
+vi.mock('../config', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../config')>()),
   ACCOUNT_CONFIG: {
     authServer: { baseUrl: 'https://auth.test.emdash.sh', authTimeoutMs: 5000 },
   },
