@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { getSidebarStore } from '@core/features/workbench/contributions/browser/app-stores';
 import { useOpenModal } from '@core/manifests/browser/modal-api';
 import { BoundShortcut } from '@core/primitives/keybindings/browser/shortcut';
+import { NewTaskButton } from './new-task-button';
 
 export const ProjectsGroupLabel = observer(function ProjectsGroupLabel() {
   const openAddProjectModal = useOpenModal('addProjectModal');
@@ -14,6 +15,8 @@ export const ProjectsGroupLabel = observer(function ProjectsGroupLabel() {
         {getSidebarStore().groupBy === 'project' ? 'Projects' : 'Tasks'}
       </MicroLabel>
       <div className="flex items-center gap-1">
+        {/* Without project rows there is no per-project "+", so offer one here. */}
+        {getSidebarStore().groupBy !== 'project' && <NewTaskButton />}
         <DropdownMenu.Root>
           <Tooltip.Root>
             <DropdownMenu.Trigger
