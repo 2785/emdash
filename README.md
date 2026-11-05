@@ -35,7 +35,7 @@ There are no prebuilt releases; you build it yourself. You need `pnpm` (any vers
 pins its own pnpm and Node) and the Xcode command line tools (`xcode-select --install`).
 
 ```bash
-git clone https://github.com/2785/emdash.git emjosh
+git clone https://github.com/2785/emjosh.git
 cd emjosh
 pnpm install
 pnpm --dir apps/emdash-desktop run install:personal
