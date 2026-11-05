@@ -27,22 +27,18 @@ export const pill = style({
   verticalAlign: 'baseline',
 });
 
+// Reads as part of the sentence: the surrounding text's size and line, a tint instead of a border,
+// so it doesn't look like a box floating on the line.
 export const compactPill = style({
-  display: 'inline-block',
+  display: 'inline',
   cursor: 'default',
   userSelect: 'none',
-  maxWidth: '200px',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  verticalAlign: 'baseline',
-  padding: '0 0.25em',
-  borderRadius: '3px',
-  border: `1px solid color-mix(in srgb, ${vars.foreground} 18%, transparent)`,
-  backgroundColor: `color-mix(in srgb, ${vars.foreground} 5%, transparent)`,
-  fontSize: '0.85em',
-  lineHeight: 1.3,
-  color: `color-mix(in srgb, ${vars.foreground} 80%, transparent)`,
+  padding: '0.0625em 0.3em',
+  borderRadius: '4px',
+  backgroundColor: `color-mix(in srgb, ${vars.foreground} 10%, transparent)`,
+  color: `color-mix(in srgb, ${vars.foreground} 85%, transparent)`,
+  boxDecorationBreak: 'clone',
 });
 
 const pendingPulse = keyframes({

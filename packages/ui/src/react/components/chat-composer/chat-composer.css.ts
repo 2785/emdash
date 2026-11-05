@@ -127,8 +127,7 @@ export const attachmentStrip = style({
   gap: '0.5rem',
   paddingLeft: '0.75rem',
   paddingRight: '0.75rem',
-  paddingTop: '0.375rem',
-  paddingBottom: '0.125rem',
+  paddingTop: '0.75rem',
 });
 
 export const attachmentThumb = style({
