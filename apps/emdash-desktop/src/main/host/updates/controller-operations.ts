@@ -1,6 +1,7 @@
 import { app, shell } from 'electron';
 import type { UpdateOperations } from '@core/features/updates/node/wire-controller';
 import { EMDASH_RELEASES_URL } from '@core/primitives/urls/api/urls';
+import { personalReloadService } from './personal-reload-instance';
 import { updateService } from './update-service';
 import { formatUpdaterError } from './utils';
 
@@ -18,5 +19,7 @@ export const updateOperations: UpdateOperations = {
   },
   getState: () => updateService.getState(),
   fetchReleaseNotes: () => updateService.fetchReleaseNotes(),
+  getPersonalBuild: () => personalReloadService.getState(),
+  reloadPersonalBuild: () => personalReloadService.reload(),
   formatError: formatUpdaterError,
 };

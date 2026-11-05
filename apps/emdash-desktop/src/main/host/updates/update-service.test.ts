@@ -63,6 +63,8 @@ describe('desktop update lifecycle', () => {
         openLatestRelease: async () => {},
         getState: () => service.getState(),
         fetchReleaseNotes: async () => null,
+        getPersonalBuild: () => ({ enabled: false, staged: null }),
+        reloadPersonalBuild: vi.fn(),
         formatError: formatUpdaterError,
       })
     );

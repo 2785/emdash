@@ -1,5 +1,5 @@
 import { createController, type Controller } from '@emdash/wire/rpc';
-import { updatesContract, type DesktopUpdateState } from '../api';
+import { updatesContract, type DesktopUpdateState, type PersonalBuildState } from '../api';
 import { updateEvents } from './event-host';
 
 export type UpdateOperations = {
@@ -9,6 +9,8 @@ export type UpdateOperations = {
   openLatestRelease(): Promise<void>;
   getState(): DesktopUpdateState;
   fetchReleaseNotes(): Promise<string | null>;
+  getPersonalBuild(): PersonalBuildState;
+  reloadPersonalBuild(): void;
   formatError(error: unknown): string;
 };
 
@@ -47,6 +49,21 @@ export function createUpdatesWireController(updateOperations: UpdateOperations):
           success: false as const,
           error: updateOperations.formatError(error),
         };
+      }
+    },
+    getPersonalBuild: async () => {
+      try {
+        return { success: true as const, data: updateOperations.getPersonalBuild() };
+      } catch (error) {
+        return { success: false as const, error: updateOperations.formatError(error) };
+      }
+    },
+    reloadPersonalBuild: async () => {
+      try {
+        updateOperations.reloadPersonalBuild();
+        return { success: true as const };
+      } catch (error) {
+        return { success: false as const, error: updateOperations.formatError(error) };
       }
     },
     getState: async () => {

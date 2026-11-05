@@ -22,6 +22,13 @@ export type UpdateProgress = {
   total: number;
 };
 
+/** A build staged by `pnpm run install:personal`, waiting for a reload to be installed. */
+export type PersonalStagedBuild = { builtAt: string; commit?: string };
+export type PersonalBuildState = { enabled: boolean; staged: PersonalStagedBuild | null };
+export type PersonalBuildStateResult =
+  | { success: true; data: PersonalBuildState }
+  | { success: false; error: string };
+
 export type DesktopUpdateEvent =
   | { type: 'checking' }
   | { type: 'available'; version: string }
@@ -30,7 +37,8 @@ export type DesktopUpdateEvent =
   | ({ type: 'progress' } & UpdateProgress)
   | { type: 'downloaded'; version: string }
   | { type: 'installing' }
-  | { type: 'error'; message: string; details?: string };
+  | { type: 'error'; message: string; details?: string }
+  | { type: 'personal-staged'; build: PersonalStagedBuild | null };
 
 export type UpdateActionResult = { success: true } | { success: false; error: string };
 export type UpdateCheckResult =
@@ -54,6 +62,9 @@ export const updatesContract = defineContract({
   openLatest: procedure({ input: voidInput, output: z.custom<UpdateActionResult>() }),
   getState: procedure({ input: voidInput, output: z.custom<UpdateStateResult>() }),
   getReleaseNotes: procedure({ input: voidInput, output: z.custom<ReleaseNotesResult>() }),
+  getPersonalBuild: procedure({ input: voidInput, output: z.custom<PersonalBuildStateResult>() }),
+  /** Personal builds only: quit cleanly and reopen, installing the staged build if there is one. */
+  reloadPersonalBuild: procedure({ input: voidInput, output: z.custom<UpdateActionResult>() }),
   events: eventStream({
     key: z.void(),
     event: z.custom<DesktopUpdateEvent>(),

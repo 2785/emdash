@@ -1,7 +1,7 @@
 import { app, clipboard, Menu, shell } from 'electron';
 import { desktopHostEvents } from '@core/features/workbench/node';
 import { MENU_ITEMS } from '@core/manifests/shared/menu-items';
-import { PRODUCT_NAME } from '@core/primitives/app-identity/api/app-identity';
+import { IS_PERSONAL, PRODUCT_NAME } from '@core/primitives/app-identity/api/app-identity';
 import {
   resolveEffectiveChord,
   toElectronAccelerator,
@@ -12,6 +12,7 @@ import {
   EMDASH_ISSUES_NEW_URL,
   EMDASH_RELEASES_URL,
 } from '@core/primitives/urls/api/urls';
+import { personalReloadService } from '@main/host/updates/personal-reload-instance';
 import { telemetryService } from '@main/lib/telemetry';
 
 export interface MenuKeybindingSnapshotEntry {
@@ -74,10 +75,16 @@ export function setupApplicationMenu(
                 accelerator: acceleratorFor('app.settings'),
                 click: () => emitCommand('app.settings'),
               },
-              {
-                label: 'Check for Updates\u2026',
-                click: () => desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
-              },
+              IS_PERSONAL
+                ? {
+                    label: `Reload ${PRODUCT_NAME}`,
+                    click: () => personalReloadService.reload(),
+                  }
+                : {
+                    label: 'Check for Updates\u2026',
+                    click: () =>
+                      desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
+                  },
               { type: 'separator' as const },
               { role: 'services' as const },
               { type: 'separator' as const },
