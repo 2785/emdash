@@ -104,6 +104,33 @@ describe('SessionCell prompts', () => {
     }
   });
 
+  it('settles background agents left running in replayed history', () => {
+    const { cell } = makePendingCell();
+    try {
+      cell.beginReplay();
+      cell.push({
+        kind: 'subagent',
+        toolCallId: 'tool-1',
+        agentId: 'agent-1',
+        title: 'Background agent from a previous process',
+        status: 'in_progress',
+        parentToolCallId: null,
+        background: true,
+      });
+      cell.endReplay();
+      cell.applySessionLoaded();
+
+      expect(cell.transcript.agents).toMatchObject([{ agentId: 'agent-1', status: 'completed' }]);
+      expect(cell.sessionState).toMatchObject({
+        backgroundAgentCount: 0,
+        isGenerating: false,
+        lifecycle: 'ready',
+      });
+    } finally {
+      cell.dispose();
+    }
+  });
+
   it('rejects notifications outside a usable session just like other transcript events', () => {
     const { cell } = makePendingCell();
     try {

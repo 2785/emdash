@@ -61,6 +61,23 @@ describe('claude hooks', () => {
     });
   });
 
+  it('prefers the declared notification type over the message text', () => {
+    expect(
+      parse('notification', {
+        hook_event_name: 'Notification',
+        notification_type: 'permission_prompt',
+        message: 'Claude needs your attention',
+      })
+    ).toMatchObject({ type: 'notification', notificationType: 'permission_prompt' });
+    expect(
+      parse('notification', {
+        hook_event_name: 'Notification',
+        notification_type: 'idle_prompt',
+        message: 'Waiting for approval of the plan',
+      })
+    ).toMatchObject({ type: 'notification', notificationType: 'idle_prompt' });
+  });
+
   it('omits the session id when the payload has none', () => {
     const event = parse('stop', { hook_event_name: 'Stop' });
     expect(event).toEqual({ kind: 'status', type: 'stop' });
@@ -109,5 +126,20 @@ describe('claude hooks', () => {
     expect(settings.hooks.SessionStart).toEqual([
       { hooks: [{ type: 'command', command: makeStdinHookCommand('session-start') }] },
     ]);
+  });
+
+  it('reports finished tool calls as work in progress', async () => {
+    const files = new Map<string, string>();
+
+    await provider.behavior.hooks!.writeHooks(createMemoryFs(files), []);
+
+    const settings = JSON.parse(files.get(CLAUDE_SETTINGS_PATH)!);
+    expect(settings.hooks.PostToolUse).toEqual([
+      { hooks: [{ type: 'command', command: makeStdinHookCommand('start') }] },
+    ]);
+    expect(parse('start', { hook_event_name: 'PostToolUse', tool_name: 'Bash' })).toEqual({
+      kind: 'status',
+      type: 'start',
+    });
   });
 });

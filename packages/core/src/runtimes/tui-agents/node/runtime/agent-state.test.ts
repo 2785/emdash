@@ -165,7 +165,7 @@ describe('TuiAgentStates', () => {
     expect(onSessionIdChanged).not.toHaveBeenCalled();
   });
 
-  it('does not restore input-inferred working status across session resume', () => {
+  it('restores working as idle but keeps statuses that need attention', () => {
     const { tracker, agentStates } = createTracker();
 
     tracker.restore({
@@ -175,15 +175,69 @@ describe('TuiAgentStates', () => {
       source: 'input',
       updatedAt: 1,
     });
-    expect(peek(agentStates.states.list)['conv-1']?.status).toBe('idle');
-
     tracker.restore({
       conversationId: 'conv-2',
-      providerId: 'cursor',
+      providerId: 'claude',
       status: 'working',
       source: 'hook',
       updatedAt: 1,
     });
-    expect(peek(agentStates.states.list)['conv-2']?.status).toBe('working');
+    tracker.restore({
+      conversationId: 'conv-3',
+      providerId: 'claude',
+      status: 'awaiting-input',
+      source: 'hook',
+      notificationType: 'permission_prompt',
+      updatedAt: 1,
+    });
+
+    const states = peek(agentStates.states.list);
+    expect(states['conv-1']?.status).toBe('idle');
+    expect(states['conv-2']?.status).toBe('idle');
+    expect(states['conv-3']?.status).toBe('awaiting-input');
+  });
+
+  describe('idle_prompt notifications', () => {
+    const idlePrompt = {
+      kind: 'status',
+      type: 'notification',
+      notificationType: 'idle_prompt',
+    } as const;
+
+    it('completes a turn whose stop hook never fired', () => {
+      const { tracker, agentStates } = createTracker();
+      tracker.applyCanonicalEvent('conv-1', 'claude', { kind: 'status', type: 'start' });
+
+      tracker.applyCanonicalEvent('conv-1', 'claude', idlePrompt);
+
+      expect(peek(agentStates.states.list)['conv-1']?.status).toBe('completed');
+    });
+
+    it('does not turn a finished turn into a request for attention', () => {
+      const { tracker, agentStates, onAgentStateChanged } = createTracker();
+      tracker.applyCanonicalEvent('conv-1', 'claude', { kind: 'status', type: 'stop' });
+      onAgentStateChanged.mockClear();
+
+      tracker.applyCanonicalEvent('conv-1', 'claude', idlePrompt);
+
+      expect(peek(agentStates.states.list)['conv-1']?.status).toBe('completed');
+      expect(onAgentStateChanged).not.toHaveBeenCalled();
+    });
+
+    it('keeps a pending permission prompt', () => {
+      const { tracker, agentStates } = createTracker();
+      tracker.applyCanonicalEvent('conv-1', 'claude', {
+        kind: 'status',
+        type: 'notification',
+        notificationType: 'permission_prompt',
+      });
+
+      tracker.applyCanonicalEvent('conv-1', 'claude', idlePrompt);
+
+      expect(peek(agentStates.states.list)['conv-1']).toMatchObject({
+        status: 'awaiting-input',
+        notificationType: 'permission_prompt',
+      });
+    });
   });
 });

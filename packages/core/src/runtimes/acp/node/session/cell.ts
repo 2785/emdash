@@ -202,6 +202,11 @@ export class SessionCell {
 
   endReplay(at = Date.now()): void {
     const previousRunningAgentCount = this.lastRunningAgentCount;
+    // A resumed session runs in a new agent process, so background agents the replayed history
+    // still shows as running belonged to the old process and will never report back. Left
+    // running, they would pin the session as generating. Their real outcome is unknown; they
+    // are marked completed rather than failed so finished work isn't shown as an error.
+    this.settleRunningAgents('all', 'completed');
     this.transcript.endReplay(at);
     this.dispatchAgentsChangedIfNeeded(previousRunningAgentCount);
     this.applyEvent({ type: 'ReplayEnded', status: 'complete' });
