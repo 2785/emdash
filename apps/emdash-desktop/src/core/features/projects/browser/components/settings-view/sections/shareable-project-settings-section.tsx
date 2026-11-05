@@ -1,5 +1,6 @@
 import { Button, Field, Input, Separator, Switch, Textarea } from '@emdash/ui/react/primitives';
 import { Fragment } from 'react';
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import { openExternal } from '@core/primitives/desktop-host/browser/host-client';
 import { EnvironmentVariableInputs } from '@core/primitives/environment-variables/browser/environment-variable-inputs';
 import type {
@@ -230,22 +231,27 @@ export function ShareableSettingsSection({
             Shell commands run at each stage of the worktree lifecycle. Prepare blocks task startup;
             Setup and Run start after the workspace is ready. When both are set to auto-run, Run
             waits for Setup to complete.
-            <span> See </span>
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              className="group text-muted-foreground inline-flex h-auto cursor-pointer items-center gap-1 px-0 text-sm font-normal hover:text-foreground hover:no-underline focus-visible:ring-0 focus-visible:outline-none"
-              onClick={() => openExternal('https://www.emdash.sh/docs/project-config')}
-            >
-              <span className="font-sans text-xs transition-colors group-hover:text-foreground">
-                docs
-              </span>
-              <span className="text-muted-foreground text-sm transition-colors group-hover:text-foreground">
-                ↗
-              </span>
-            </Button>
-            <span> for the full project config reference.</span>
+            {/* Emjosh does not link to Emdash-hosted docs. */}
+            {!IS_PERSONAL && (
+              <>
+                <span> See </span>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="group text-muted-foreground inline-flex h-auto cursor-pointer items-center gap-1 px-0 text-sm font-normal hover:text-foreground hover:no-underline focus-visible:ring-0 focus-visible:outline-none"
+                  onClick={() => openExternal('https://www.emdash.sh/docs/project-config')}
+                >
+                  <span className="font-sans text-xs transition-colors group-hover:text-foreground">
+                    docs
+                  </span>
+                  <span className="text-muted-foreground text-sm transition-colors group-hover:text-foreground">
+                    ↗
+                  </span>
+                </Button>
+                <span> for the full project config reference.</span>
+              </>
+            )}
           </Field.Description>
         </Field.Root>
 

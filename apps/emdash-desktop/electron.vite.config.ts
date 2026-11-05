@@ -3,7 +3,9 @@ import { basename, extname, resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'electron-vite';
+import type { Plugin } from 'vite';
 import { desktopWorkers } from './src/core/manifests/node/workers';
+import { resolveAppIdentity } from './src/core/primitives/app-identity/api/app-identity';
 
 function desktopWorkerBuildInputs(): Record<string, string> {
   return Object.fromEntries(
@@ -28,6 +30,21 @@ function copyAdapterAssetsPlugin() {
         throw error;
       }
     },
+  };
+}
+
+/** Fills `%PRODUCT_NAME%` in index.html with the build flavor's product name. */
+function productNameHtmlPlugin(): Plugin {
+  let productName = 'Emdash';
+  return {
+    name: 'product-name-html',
+    configResolved(config) {
+      productName = resolveAppIdentity({
+        dev: config.env.DEV === true,
+        build: config.env.VITE_BUILD,
+      }).PRODUCT_NAME;
+    },
+    transformIndexHtml: (html) => html.replaceAll('%PRODUCT_NAME%', productName),
   };
 }
 
@@ -104,7 +121,7 @@ export default defineConfig({
     root: 'src/renderer',
     // Same env files as main, so build flavor variables (VITE_BUILD) reach the renderer too.
     envDir: resolve('.'),
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), productNameHtmlPlugin()],
     resolve: {
       alias: {
         '@': resolve('src'),

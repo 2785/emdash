@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { classifySpawnPurpose, recordSpawn } from '@emdash/shared/perf';
+import { PRODUCT_NAME } from '@core/primitives/app-identity/api/app-identity';
 import type { CommandRunner } from '@core/primitives/command-runner/api/command-runner';
 
 const execFileAsync = promisify(execFile);
@@ -104,6 +105,6 @@ export function isMissingGitExecutableError(error: unknown): boolean {
 
 export function missingGitExecutableError(): Error {
   return new Error(
-    'Git is not installed or Emdash cannot find it. Install Git, then restart Emdash.'
+    `Git is not installed or ${PRODUCT_NAME} cannot find it. Install Git, then restart ${PRODUCT_NAME}.`
   );
 }

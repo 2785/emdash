@@ -23,6 +23,11 @@ const config: Configuration = {
     hardenedRuntime: false,
     target: [{ target: 'dir', arch: ['arm64'] }],
     icon: 'src/assets/images/emjosh/emjosh.icns',
+    extendInfo: {
+      ...base.mac?.extendInfo,
+      NSMicrophoneUsageDescription: `${PRODUCT_NAME} needs microphone access for voice dictation and voice mode features.`,
+      NSLocalNetworkUsageDescription: `${PRODUCT_NAME} needs local network access to connect to SSH hosts on your network.`,
+    },
   },
 };
 

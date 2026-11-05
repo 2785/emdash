@@ -22,7 +22,11 @@ export function GeneralSettingsPage() {
         sticky
         draggable
         title="General"
-        description="Manage your account, app updates, and task preferences."
+        description={
+          IS_PERSONAL
+            ? 'Manage notifications and task preferences.'
+            : 'Manage your account, app updates, and task preferences.'
+        }
       />
       {/* Emjosh has no Emdash account, telemetry, or official updates. */}
       {!IS_PERSONAL && (
