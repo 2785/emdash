@@ -9,11 +9,7 @@ import type { ResolvedTuiProvider } from '#services/agent-plugins/api/plugins';
 import type { CanonicalHookEvent } from '#services/agent-plugins/api/plugins';
 import { defaultHookEventParser } from '#services/agent-plugins/api/plugins/helpers';
 
-const ATTENTION_NOTIFICATION_TYPES = new Set([
-  'permission_prompt',
-  'idle_prompt',
-  'elicitation_dialog',
-]);
+const ATTENTION_NOTIFICATION_TYPES = new Set(['permission_prompt', 'elicitation_dialog']);
 
 export type ProviderSessionIdChangedHandler = (
   conversationId: string,
@@ -86,6 +82,23 @@ export class TuiAgentStates {
         providerId,
         source: 'hook',
         status: 'error',
+        title: event.title,
+        message: event.message,
+        lastAssistantMessage: event.lastAssistantMessage,
+      });
+      return;
+    }
+
+    if (event.notificationType === 'idle_prompt') {
+      // "Ready for input": the agent is idle. That ends a turn whose stop hook never fired
+      // (e.g. interrupted with Esc), but must not turn a finished turn into a request for
+      // attention, nor clear a permission prompt that is still pending.
+      if (this.current(conversationId)?.status !== 'working') return;
+      this.setStatus(conversationId, {
+        providerId,
+        source: 'hook',
+        status: 'completed',
+        notificationType: event.notificationType,
         title: event.title,
         message: event.message,
         lastAssistantMessage: event.lastAssistantMessage,
@@ -169,14 +182,11 @@ export class TuiAgentStates {
   }
 
   restore(state: TuiAgentState): void {
-    // Input-inferred "working" is ephemeral: providers without a start hook
-    // mark working on Enter and only clear on process exit, so long-lived TUI
-    // sessions permanently restore the sidebar spinner. Drop that durable lie;
-    // a live hook (or a fresh Enter on a hookless provider) re-asserts working.
-    const restored =
-      state.status === 'working' && state.source === 'input'
-        ? { ...state, status: 'idle' as const }
-        : state;
+    // A persisted "working" can't be trusted: hookless providers mark working on Enter and only
+    // clear it on exit, and hook events (including the stop hook) are lost while the app is
+    // closed even though the session keeps running. Restore it as idle; the next hook (or a
+    // fresh Enter on a hookless provider) re-asserts working.
+    const restored = state.status === 'working' ? { ...state, status: 'idle' as const } : state;
     produceCell(this.agentStates.states.list, (draft) => {
       draft[restored.conversationId] = restored;
     });

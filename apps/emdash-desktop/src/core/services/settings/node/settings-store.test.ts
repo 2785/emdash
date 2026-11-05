@@ -80,6 +80,16 @@ describe('SettingsStore contributions', () => {
     ).toBe('pty');
   });
 
+  it('defaults chat follow-ups to queueing and persists interrupt mode', async () => {
+    rows.clear();
+    const settings = new SettingsStore(db, appSettingsContributions);
+    expect(await settings.get('followUpMode')).toBe('queue');
+    await settings.update('followUpMode', 'interrupt');
+    expect(await new SettingsStore(db, appSettingsContributions).get('followUpMode')).toBe(
+      'interrupt'
+    );
+  });
+
   it('applies tray visibility immediately through Wire updates and resets', async () => {
     rows.clear();
     const service = new AppSettingsService(new SettingsStore(db, appSettingsContributions));

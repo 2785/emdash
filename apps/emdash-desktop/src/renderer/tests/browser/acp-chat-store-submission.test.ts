@@ -738,6 +738,24 @@ describe('AcpChatStore prompt submission', () => {
     expect(cancelTurn).not.toHaveBeenCalled();
   });
 
+  it('sends with interrupt placement only when interrupting', async () => {
+    const sendPrompt = vi.fn(async () => ({ success: true, data: { queued: true } }));
+    const store = createStore({ ...idleState(), isGenerating: true }, sendPrompt);
+    const onAccepted = vi.fn();
+
+    store.submitPrompt('queued', [], undefined, onAccepted);
+    store.submitPrompt('now', [], undefined, onAccepted, { interrupt: true });
+
+    await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(2));
+    expect(sendPrompt).toHaveBeenNthCalledWith(
+      1,
+      { text: 'queued' },
+      undefined,
+      expect.any(String)
+    );
+    expect(sendPrompt).toHaveBeenNthCalledWith(2, { text: 'now' }, 'interrupt', expect.any(String));
+  });
+
   it('clears draft text and attachments on submit', async () => {
     const sendPrompt = vi.fn(async () => ({ success: true, data: { queued: false } }));
     const store = createStore(idleState(), sendPrompt);

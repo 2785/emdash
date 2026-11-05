@@ -1288,6 +1288,36 @@ describe('AcpRuntime session manager', () => {
     resolvePrompt({ stopReason: 'end_turn' });
     await first;
   });
+  it("routes placement 'interrupt' to cancel the active turn and run the merged prompt", async () => {
+    const { h, rt } = await launchHarness('conv-placement-interrupt');
+    let resolvePrompt!: (value: { stopReason: 'cancelled' }) => void;
+    h.agent.prompt = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ stopReason: 'cancelled' }>((resolve) => {
+            resolvePrompt = resolve;
+          })
+      )
+      .mockResolvedValue({ stopReason: 'end_turn' });
+    const first = rt.sendPrompt('conv-placement-interrupt', { text: 'first' });
+    await rt.sendPrompt('conv-placement-interrupt', { text: 'second' });
+    const third = await rt.sendPrompt('conv-placement-interrupt', { text: 'third' }, 'interrupt');
+    expect(isOk(third)).toBe(true);
+    if (!isOk(third)) return;
+    expect(third.data).toEqual({ queued: true });
+    expect(h.agent.cancel).toHaveBeenCalledTimes(1);
+    expect(rt.getSessionState('conv-placement-interrupt').queuedPrompts).toMatchObject([
+      { text: 'second\n\nthird' },
+    ]);
+    resolvePrompt({ stopReason: 'cancelled' });
+    await first;
+    await vi.waitFor(() =>
+      expect(h.agent.prompt).toHaveBeenLastCalledWith(
+        expect.objectContaining({ prompt: [{ type: 'text', text: 'second\n\nthird' }] })
+      )
+    );
+  });
   it('loads replayed history after attaching a resumable conversation', async () => {
     const h = makeAcpHarness();
     const rt = new AcpRuntime(h.deps);

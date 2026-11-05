@@ -63,7 +63,10 @@ export function deriveAcpAgentStatusActions(
   }
 
   if (!previous) {
-    return next.pendingPermissionCount > 0 ? [permissionAction(next)] : [];
+    // A session first observed mid-turn (e.g. one resumed after the bootstrap snapshot) still
+    // needs its working status; settled first observations are left to the persisted state.
+    if (next.pendingPermissionCount > 0) return [permissionAction(next)];
+    return isBusy(next) && next.lifecycle !== 'cancelling' ? [eventAction(next, 'start')] : [];
   }
 
   if (next.lifecycle === 'closed') {

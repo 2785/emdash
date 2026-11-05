@@ -61,6 +61,18 @@ describe('deriveAcpAgentStatusActions', () => {
     ).toEqual([]);
   });
 
+  it('emits start when a newly observed summary is already generating', () => {
+    expect(deriveAcpAgentStatusActions(undefined, summary({ isGenerating: true }))).toEqual([
+      { kind: 'event', event: expect.objectContaining({ type: 'start' }) },
+    ]);
+    expect(
+      deriveAcpAgentStatusActions(
+        undefined,
+        summary({ isGenerating: true, lifecycle: 'cancelling' })
+      )
+    ).toEqual([]);
+  });
+
   it('emits start when generation begins', () => {
     const actions = deriveAcpAgentStatusActions(
       summary(),

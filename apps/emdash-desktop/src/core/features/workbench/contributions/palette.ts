@@ -15,13 +15,15 @@ import {
   toggleThemeCommand,
   zenModeCommand,
 } from '@core/features/workbench/contributions/commands';
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import { defineCommandPaletteItem } from '@core/primitives/palette/api';
 
 export const WORKBENCH_COMMAND_PALETTE_ITEMS = [
   defineCommandPaletteItem({ command: settingsCommand }),
   defineCommandPaletteItem({ command: newProjectCommand }),
   defineCommandPaletteItem({ command: newTaskCommand }),
-  defineCommandPaletteItem({ command: giveFeedbackCommand }),
+  // Feedback goes to the Emdash team, so Emjosh leaves it out.
+  ...(IS_PERSONAL ? [] : [defineCommandPaletteItem({ command: giveFeedbackCommand })]),
   defineCommandPaletteItem({
     command: toggleThemeCommand,
     aliases: ['appearance', 'color scheme', 'dark mode', 'light mode'],

@@ -1,6 +1,7 @@
 import { app, clipboard, Menu, shell } from 'electron';
 import { desktopHostEvents } from '@core/features/workbench/node';
 import { MENU_ITEMS } from '@core/manifests/shared/menu-items';
+import { IS_PERSONAL, PRODUCT_NAME } from '@core/primitives/app-identity/api/app-identity';
 import {
   resolveEffectiveChord,
   toElectronAccelerator,
@@ -11,6 +12,7 @@ import {
   EMDASH_ISSUES_NEW_URL,
   EMDASH_RELEASES_URL,
 } from '@core/primitives/urls/api/urls';
+import { personalReloadService } from '@main/host/updates/personal-reload-instance';
 import { telemetryService } from '@main/lib/telemetry';
 
 export interface MenuKeybindingSnapshotEntry {
@@ -61,10 +63,10 @@ export function setupApplicationMenu(
     ...(isMac
       ? [
           {
-            label: app.name,
+            label: PRODUCT_NAME,
             submenu: [
               {
-                label: `About ${app.name}`,
+                label: `About ${PRODUCT_NAME}`,
                 click: () => app.showAboutPanel(),
               },
               { type: 'separator' as const },
@@ -73,10 +75,16 @@ export function setupApplicationMenu(
                 accelerator: acceleratorFor('app.settings'),
                 click: () => emitCommand('app.settings'),
               },
-              {
-                label: 'Check for Updates\u2026',
-                click: () => desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
-              },
+              IS_PERSONAL
+                ? {
+                    label: `Reload ${PRODUCT_NAME}`,
+                    click: () => personalReloadService.reload(),
+                  }
+                : {
+                    label: 'Check for Updates\u2026',
+                    click: () =>
+                      desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
+                  },
               { type: 'separator' as const },
               { role: 'services' as const },
               { type: 'separator' as const },
@@ -85,7 +93,7 @@ export function setupApplicationMenu(
               { role: 'unhide' as const },
               { type: 'separator' as const },
               {
-                label: `Quit ${app.name}`,
+                label: `Quit ${PRODUCT_NAME}`,
                 accelerator: 'CmdOrCtrl+Q',
                 click: () => app.quit(),
               },
@@ -167,54 +175,59 @@ export function setupApplicationMenu(
     },
     // Window menu
     { role: 'windowMenu' as const },
-    // Help menu
-    {
-      role: 'help' as const,
-      label: 'Help',
-      submenu: [
-        ...(!isMac
-          ? [
+    // Help menu: every item points at Emdash (docs, releases, issues, feedback), so Emjosh has none.
+    ...(IS_PERSONAL
+      ? []
+      : [
+          {
+            role: 'help' as const,
+            label: 'Help',
+            submenu: [
+              ...(!isMac
+                ? [
+                    {
+                      label: 'Check for Updates\u2026',
+                      click: () =>
+                        desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
+                    },
+                    { type: 'separator' as const },
+                  ]
+                : []),
               {
-                label: 'Check for Updates\u2026',
-                click: () => desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
+                label: 'Docs',
+                click: () => {
+                  void shell.openExternal(EMDASH_DOCS_URL);
+                },
+              },
+              {
+                label: 'Changelog',
+                click: () => {
+                  void shell.openExternal(EMDASH_RELEASES_URL);
+                },
               },
               { type: 'separator' as const },
-            ]
-          : []),
-        {
-          label: 'Docs',
-          click: () => {
-            void shell.openExternal(EMDASH_DOCS_URL);
-          },
-        },
-        {
-          label: 'Changelog',
-          click: () => {
-            void shell.openExternal(EMDASH_RELEASES_URL);
-          },
-        },
-        { type: 'separator' as const },
-        {
-          label: 'Troubleshooting',
-          submenu: [
-            {
-              label: 'Report Issue\u2026',
-              click: () => {
-                void shell.openExternal(EMDASH_ISSUES_NEW_URL);
+              {
+                label: 'Troubleshooting',
+                submenu: [
+                  {
+                    label: 'Report Issue\u2026',
+                    click: () => {
+                      void shell.openExternal(EMDASH_ISSUES_NEW_URL);
+                    },
+                  },
+                  {
+                    label: 'Copy Installation ID',
+                    click: copyInstallationId,
+                  },
+                ],
               },
-            },
-            {
-              label: 'Copy Installation ID',
-              click: copyInstallationId,
-            },
-          ],
-        },
-        {
-          label: 'Give Feedback',
-          click: () => emitCommand('app.giveFeedback'),
-        },
-      ],
-    },
+              {
+                label: 'Give Feedback',
+                click: () => emitCommand('app.giveFeedback'),
+              },
+            ],
+          },
+        ]),
   ];
 
   const menu = Menu.buildFromTemplate(template);

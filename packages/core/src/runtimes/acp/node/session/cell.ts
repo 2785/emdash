@@ -202,6 +202,11 @@ export class SessionCell {
 
   endReplay(at = Date.now()): void {
     const previousRunningAgentCount = this.lastRunningAgentCount;
+    // A resumed session runs in a new agent process, so background agents the replayed history
+    // still shows as running belonged to the old process and will never report back. Left
+    // running, they would pin the session as generating. Their real outcome is unknown; they
+    // are marked completed rather than failed so finished work isn't shown as an error.
+    this.settleRunningAgents('all', 'completed');
     this.transcript.endReplay(at);
     this.dispatchAgentsChangedIfNeeded(previousRunningAgentCount);
     this.applyEvent({ type: 'ReplayEnded', status: 'complete' });
@@ -264,6 +269,45 @@ export class SessionCell {
       acceptance
     );
     return result;
+  }
+
+  /**
+   * While busy: folds queued prompts and `input` into one queued prompt and cancels the active
+   * turn, so it runs as soon as the turn ends. While idle: sends `input` like `prompt`.
+   */
+  async interrupt(
+    input: PromptInput,
+    acceptance?: PromptAcceptance
+  ): Promise<Result<SessionPromptResult, AcpSendPromptError>> {
+    if (!this.machine.isBusy) return this.prompt(input, acceptance);
+    const alreadyCancelling = this.machine.phase.kind === 'cancelling';
+    const now = Date.now();
+    const dispatched = this.dispatchFor<InvalidStateError>(
+      {
+        type: 'InterruptWithPrompt',
+        prompt: {
+          id: acceptance?.id ?? crypto.randomUUID(),
+          ...input,
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+      ['invalid_state']
+    );
+    if (!dispatched.success) return dispatched;
+    acceptance?.onAccepted({ queued: true });
+    if (!alreadyCancelling) {
+      try {
+        await this.deps.agent.cancel({ sessionId: this.acpSessionId });
+      } catch (error) {
+        // The merged prompt is already queued; it runs whenever the turn does end.
+        this.deps.logger.warn('SessionCell: failed to cancel turn for interrupt', {
+          conversationId: this.conversationId,
+          error,
+        });
+      }
+    }
+    return ok({ queued: true });
   }
 
   queuePrompt(

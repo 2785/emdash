@@ -2,7 +2,11 @@ import { toast } from '@emdash/ui/react/primitives';
 import { ArrowUpRight } from 'lucide-react';
 import { action, computed, makeObservable, observable, runInAction } from 'mobx';
 import { settingsViewDef } from '@core/features/settings/contributions/views';
-import type { DesktopUpdateEvent, DesktopUpdateState } from '@core/features/updates/api';
+import type {
+  DesktopUpdateEvent,
+  DesktopUpdateState,
+  PersonalBuildState,
+} from '@core/features/updates/api';
 import { getHostClient } from '@core/primitives/desktop-host/browser/host-client';
 import { getNavigation } from '@core/primitives/navigation/browser/navigation-selectors';
 import { getUpdatesClient } from '../api/browser/client';
@@ -33,9 +37,13 @@ export class UpdateStore {
   downloadRequested = false;
   private stateRevision = 0;
   availableVersion: string | undefined = undefined;
+  personalBuild: PersonalBuildState = { enabled: false, staged: null };
+  reloading = false;
 
   constructor() {
     makeObservable(this, {
+      personalBuild: observable.ref,
+      reloading: observable,
       state: observable,
       currentVersion: observable,
       downloadRequested: observable,
@@ -159,12 +167,47 @@ export class UpdateStore {
     }
   }
 
+  async reloadPersonalBuild(): Promise<void> {
+    if (this.reloading) return;
+    runInAction(() => {
+      this.reloading = true;
+    });
+    try {
+      const client = await getUpdatesClient();
+      const res = await client.reloadPersonalBuild(undefined);
+      if (!res.success) throw new Error(res.error);
+    } catch (error) {
+      toast.error('Reload failed', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      // The app normally exits; this only runs when the quit was cancelled or failed.
+      runInAction(() => {
+        this.reloading = false;
+      });
+    }
+  }
+
+  private async _refreshPersonalBuild(): Promise<void> {
+    try {
+      const client = await getUpdatesClient();
+      const res = await client.getPersonalBuild(undefined);
+      if (res.success) runInAction(() => (this.personalBuild = res.data));
+    } catch {
+      // Reload stays hidden when the state can't be read.
+    }
+  }
+
   private async _startWire(): Promise<void> {
     const client = await getUpdatesClient();
     await client.events.subscribe(undefined, {
       onEvent: (event) => this._applyEvent(event),
-      onGap: () => void this._refreshWireState(),
+      onGap: () => {
+        void this._refreshWireState();
+        void this._refreshPersonalBuild();
+      },
     });
+    await this._refreshPersonalBuild();
     await this._refreshWireState();
     await this.check();
   }
@@ -219,6 +262,10 @@ export class UpdateStore {
   }
 
   private _applyEvent(event: DesktopUpdateEvent): void {
+    if (event.type === 'personal-staged') {
+      runInAction(() => (this.personalBuild = { ...this.personalBuild, staged: event.build }));
+      return;
+    }
     this.stateRevision++;
     runInAction(() => {
       switch (event.type) {

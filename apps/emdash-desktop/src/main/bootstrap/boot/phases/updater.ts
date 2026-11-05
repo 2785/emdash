@@ -1,3 +1,4 @@
+import { personalReloadService } from '@main/host/updates/personal-reload-instance';
 import { updateService } from '@main/host/updates/update-service';
 import { log } from '@main/lib/logger';
 
@@ -8,5 +9,10 @@ export async function initializeUpdater(): Promise<void> {
     await updateService.initialize();
   } catch (error) {
     log.warn('Failed to initialize auto-update service', { error });
+  }
+  try {
+    await personalReloadService.start();
+  } catch (error) {
+    log.warn('Failed to start personal reload service', { error });
   }
 }

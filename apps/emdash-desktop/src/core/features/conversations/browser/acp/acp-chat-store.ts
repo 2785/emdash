@@ -4,6 +4,7 @@ import {
   type AcpSessionStartMode,
   type PromptAttachment,
   type PromptInput,
+  type PromptPlacement,
   type ProviderConfigOption,
   type QueuedPrompt,
   type SessionMcpServer,
@@ -415,7 +416,8 @@ export class AcpChatStore {
     text: string,
     attachments: AcpPromptAttachment[] = [],
     hiddenContext?: string | Promise<string | undefined>,
-    onAccepted?: () => void
+    onAccepted?: () => void,
+    options: { interrupt?: boolean } = {}
   ): void {
     if (
       this.hostAccess?.liveAction.kind === 'disabled' ||
@@ -441,20 +443,23 @@ export class AcpChatStore {
       this.chatState.scroll.set(pinMode);
     }
 
-    void this._submitPrompt(promptId, text, promptAttachments, hiddenContext).then((outcome) => {
-      if (outcome === 'accepted') onAccepted?.();
-      if (outcome !== 'rejected') return;
-      runInAction(() => {
-        if (this._disposed || submissionSequence !== this._submissionSequence) return;
-        if (optimisticId && this.chatState.session.state.pendingPrompt?.id === optimisticId) {
-          this.chatState.session.setPendingPrompt(null);
-          this._syncMessageCount();
-        }
-        if (this.draftText !== '' || this.draftAttachments.length > 0) return;
-        this.composerModel.setText(text);
-        this.draftAttachments = attachments;
-      });
-    });
+    const placement = options.interrupt ? 'interrupt' : undefined;
+    void this._submitPrompt(promptId, text, promptAttachments, hiddenContext, placement).then(
+      (outcome) => {
+        if (outcome === 'accepted') onAccepted?.();
+        if (outcome !== 'rejected') return;
+        runInAction(() => {
+          if (this._disposed || submissionSequence !== this._submissionSequence) return;
+          if (optimisticId && this.chatState.session.state.pendingPrompt?.id === optimisticId) {
+            this.chatState.session.setPendingPrompt(null);
+            this._syncMessageCount();
+          }
+          if (this.draftText !== '' || this.draftAttachments.length > 0) return;
+          this.composerModel.setText(text);
+          this.draftAttachments = attachments;
+        });
+      }
+    );
   }
 
   setDraftText(text: string): void {
@@ -770,7 +775,8 @@ export class AcpChatStore {
     promptId: string,
     text: string,
     attachments: StoredPromptAttachment[],
-    hiddenContext?: string | Promise<string | undefined>
+    hiddenContext?: string | Promise<string | undefined>,
+    placement?: PromptPlacement
   ): Promise<'accepted' | 'rejected' | 'unknown'> {
     if (this.hostAccess?.liveAction.kind === 'disabled') return 'rejected';
     const session = this.session;
@@ -796,7 +802,7 @@ export class AcpChatStore {
           ...(resolvedHiddenContext ? { hiddenContext: resolvedHiddenContext } : {}),
           ...(attachments.length > 0 ? { attachments } : {}),
         },
-        undefined,
+        placement,
         promptId
       );
       if (!result.success) {

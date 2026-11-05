@@ -102,6 +102,8 @@ export default defineConfig({
   },
   renderer: {
     root: 'src/renderer',
+    // Same env files as main, so build flavor variables (VITE_BUILD) reach the renderer too.
+    envDir: resolve('.'),
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
