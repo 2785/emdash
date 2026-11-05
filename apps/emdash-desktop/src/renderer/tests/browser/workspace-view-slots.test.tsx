@@ -37,12 +37,20 @@ vi.mock('@renderer/lib/layout/workspace-layout', () => ({
   ),
 }));
 vi.mock('@emdash/ui/react/primitives', () => ({ Toaster: () => null }));
+// Linux, where the window controls live in the titlebar.
+vi.mock('@core/primitives/keybindings/api', () => ({
+  detectPlatformContext: () => ({ os: 'linux' }),
+}));
+vi.mock('@core/features/workbench/contributions/browser/Titlebar', () => ({
+  Titlebar: () => <header data-fallback-titlebar />,
+}));
 
 import { Workspace } from '@renderer/app/workspace';
 
 type TestSlots = {
   WrapView: ComponentType<{ children: ReactNode }>;
   TitlebarSlot: ComponentType;
+  hasTitlebar: boolean;
   MainPanel: ComponentType;
   currentView: string;
 };
@@ -51,6 +59,7 @@ function slotsFor(view: string): TestSlots {
   return {
     WrapView: ({ children }) => <section data-wrapper={view}>{children}</section>,
     TitlebarSlot: () => <header data-titlebar={view} />,
+    hasTitlebar: true,
     MainPanel: () => <main data-main={view} />,
     currentView: view,
   };
@@ -89,5 +98,19 @@ describe('Workspace active view composition', () => {
     expect(host.querySelector('[data-titlebar="project"]')).not.toBeNull();
     expect(host.querySelector('[data-main="project"]')).not.toBeNull();
     expect(navigationMocks.useWorkspaceSlots).toHaveBeenCalledOnce();
+    expect(host.querySelector('[data-fallback-titlebar]')).toBeNull();
+  });
+
+  it('gives views without a titlebar a plain one on Linux, for the window controls', async () => {
+    navigationMocks.useWorkspaceSlots.mockReturnValue({
+      ...slotsFor('home'),
+      TitlebarSlot: () => null,
+      hasTitlebar: false,
+    });
+
+    await act(async () => root.render(<Workspace />));
+
+    expect(host.querySelector('[data-fallback-titlebar]')).not.toBeNull();
+    expect(host.querySelector('[data-main="home"]')).not.toBeNull();
   });
 });
