@@ -26,6 +26,10 @@ import { terminalsContract, terminalsDomain } from '@core/features/terminals/api
 import { updatesContract, updatesDomain } from '@core/features/updates/api';
 import { usageContract, usageDomain } from '@core/features/usage/api/contract';
 import {
+  workspaceControlContract,
+  workspaceControlDomain,
+} from '@core/features/workspace-control/api';
+import {
   lifecycleScriptsDomain,
   lifecycleScriptsWireContract,
   projectSettingsContract,
@@ -91,5 +95,6 @@ export const desktopDomainContracts = {
   [tasksDomain]: tasksWireContract,
   [updatesDomain]: updatesContract,
   [initiativesDomain]: initiativesContract,
+  [workspaceControlDomain]: workspaceControlContract,
   [desktopHostDomain]: desktopHostContract,
 } as const;

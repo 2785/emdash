@@ -1,6 +1,7 @@
 import { PageLayout, SettingsSection } from '@emdash/ui/react/patterns';
 import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import { AccountTab } from '../components/AccountTab';
+import { AgentConnectionRow } from '../components/AgentConnectionRow';
 import { FollowUpModeRow } from '../components/FollowUpModeRow';
 import NotificationSettingsCard from '../components/NotificationSettingsCard';
 import {
@@ -52,6 +53,7 @@ export function GeneralSettingsPage() {
         <IncludeIssueContextByDefaultRow />
         <EnableTmuxRow />
         <FollowUpModeRow />
+        <AgentConnectionRow />
       </SettingsSection>
     </div>
   );

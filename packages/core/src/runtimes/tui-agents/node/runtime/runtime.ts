@@ -532,8 +532,12 @@ export class TuiAgentsRuntime {
       startedAt,
     });
 
+    const hostArgs = await (
+      this.deps.sessionExtraArgs?.(config.input.providerId, config.input.conversationId) ??
+      Promise.resolve([])
+    ).catch(() => []);
     const commandResult = await this.deps.agentHost.buildPromptCommand(config.input.providerId, {
-      extraArgs: config.input.extraArgs,
+      extraArgs: [...(config.input.extraArgs ?? []), ...hostArgs],
       autoApprove: config.input.autoApprove ?? false,
       initialPrompt: isResuming ? undefined : config.input.initialPrompt,
       sessionId: config.input.conversationId,

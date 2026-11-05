@@ -76,6 +76,8 @@ import {
   createDesktopHostWireController,
   type DesktopHostControllerOperations,
 } from '@core/features/workbench/node/wire-controller';
+import type { AgentConnection } from '@core/features/workspace-control/api/contract';
+import { createWorkspaceControlWireController } from '@core/features/workspace-control/node/wire-controller';
 import type { WorkspacePlacementResolver } from '@core/features/workspaces/api/node/placement/workspace-placement-resolver';
 import { createWorkspaceRegistry } from '@core/features/workspaces/api/node/registry';
 import type { WorkspaceIdentityService } from '@core/features/workspaces/api/node/workspace-identity-service';
@@ -166,6 +168,7 @@ export type DesktopControllerContext = {
   readonly terminalFileSources: TerminalFileSources;
   readonly terminalShell: CreateTerminalsWireControllerOptions['terminalShell'];
   readonly updateOperations: UpdateOperations;
+  readonly workspaceControlConnection: () => AgentConnection;
   readonly usage: UsageOverviewSource;
   readonly workspaceIdentity: WorkspaceIdentityService;
   readonly workspacePlacement: WorkspacePlacementResolver;
@@ -469,6 +472,10 @@ export const desktopNodeControllers = {
   },
   initiatives: {
     create: ({ db }) => createInitiativesWireController(getInitiativesService(db)),
+  },
+  workspaceControl: {
+    create: ({ workspaceControlConnection }) =>
+      createWorkspaceControlWireController(workspaceControlConnection),
   },
   host: {
     create: ({ hostOperations }) => createDesktopHostWireController(hostOperations),

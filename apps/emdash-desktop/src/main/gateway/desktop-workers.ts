@@ -457,6 +457,7 @@ function startDesktopWorkersWithHost(
             gitCredentialChannels,
           },
           intentsFilePath: sessionIntentFilePaths().tuiAgents,
+          controlEndpointFile: controlEndpointFile(),
         })
       );
       return { client: await worker.ready(), worker };

@@ -83,6 +83,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/entry/main.ts'),
+          // stdio bridge for MCP clients outside the app (see src/entry/mcp-bridge.ts).
+          'mcp-bridge': resolve('src/entry/mcp-bridge.ts'),
           ...desktopWorkerBuildInputs(),
         },
         output: {
