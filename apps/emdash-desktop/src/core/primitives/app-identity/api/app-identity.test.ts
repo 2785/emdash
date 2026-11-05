@@ -13,11 +13,11 @@ describe('resolveAppIdentity', () => {
     });
   });
 
-  it('installs Emjosh separately with its own data, reading the stable keychain entry', () => {
+  it('installs Emjosh separately with its own data and keychain entry', () => {
     expect(resolveAppIdentity({ dev: false, build: 'personal' })).toMatchObject({
       APP_ID: 'com.emjosh.app',
       PRODUCT_NAME: 'Emjosh',
-      RUNTIME_APP_NAME: 'Emdash',
+      RUNTIME_APP_NAME: 'Emjosh',
       USER_DATA_DIR_NAME: 'emjosh',
       IS_PERSONAL: true,
       IS_CANARY: false,

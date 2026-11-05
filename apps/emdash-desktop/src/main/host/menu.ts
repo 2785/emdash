@@ -175,54 +175,59 @@ export function setupApplicationMenu(
     },
     // Window menu
     { role: 'windowMenu' as const },
-    // Help menu
-    {
-      role: 'help' as const,
-      label: 'Help',
-      submenu: [
-        ...(!isMac
-          ? [
+    // Help menu: every item points at Emdash (docs, releases, issues, feedback), so Emjosh has none.
+    ...(IS_PERSONAL
+      ? []
+      : [
+          {
+            role: 'help' as const,
+            label: 'Help',
+            submenu: [
+              ...(!isMac
+                ? [
+                    {
+                      label: 'Check for Updates\u2026',
+                      click: () =>
+                        desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
+                    },
+                    { type: 'separator' as const },
+                  ]
+                : []),
               {
-                label: 'Check for Updates\u2026',
-                click: () => desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
+                label: 'Docs',
+                click: () => {
+                  void shell.openExternal(EMDASH_DOCS_URL);
+                },
+              },
+              {
+                label: 'Changelog',
+                click: () => {
+                  void shell.openExternal(EMDASH_RELEASES_URL);
+                },
               },
               { type: 'separator' as const },
-            ]
-          : []),
-        {
-          label: 'Docs',
-          click: () => {
-            void shell.openExternal(EMDASH_DOCS_URL);
-          },
-        },
-        {
-          label: 'Changelog',
-          click: () => {
-            void shell.openExternal(EMDASH_RELEASES_URL);
-          },
-        },
-        { type: 'separator' as const },
-        {
-          label: 'Troubleshooting',
-          submenu: [
-            {
-              label: 'Report Issue\u2026',
-              click: () => {
-                void shell.openExternal(EMDASH_ISSUES_NEW_URL);
+              {
+                label: 'Troubleshooting',
+                submenu: [
+                  {
+                    label: 'Report Issue\u2026',
+                    click: () => {
+                      void shell.openExternal(EMDASH_ISSUES_NEW_URL);
+                    },
+                  },
+                  {
+                    label: 'Copy Installation ID',
+                    click: copyInstallationId,
+                  },
+                ],
               },
-            },
-            {
-              label: 'Copy Installation ID',
-              click: copyInstallationId,
-            },
-          ],
-        },
-        {
-          label: 'Give Feedback',
-          click: () => emitCommand('app.giveFeedback'),
-        },
-      ],
-    },
+              {
+                label: 'Give Feedback',
+                click: () => emitCommand('app.giveFeedback'),
+              },
+            ],
+          },
+        ]),
   ];
 
   const menu = Menu.buildFromTemplate(template);

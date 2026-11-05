@@ -1,4 +1,5 @@
 import { PageLayout, SettingsSection } from '@emdash/ui/react/patterns';
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import { AccountTab } from '../components/AccountTab';
 import { FollowUpModeRow } from '../components/FollowUpModeRow';
 import NotificationSettingsCard from '../components/NotificationSettingsCard';
@@ -23,13 +24,18 @@ export function GeneralSettingsPage() {
         title="General"
         description="Manage your account, app updates, and task preferences."
       />
-      <SettingsSection>
-        <AccountTab />
-      </SettingsSection>
-      <SettingsSection title="App">
-        <UpdateCard />
-        <TelemetryCard />
-      </SettingsSection>
+      {/* Emjosh has no Emdash account, telemetry, or official updates. */}
+      {!IS_PERSONAL && (
+        <>
+          <SettingsSection>
+            <AccountTab />
+          </SettingsSection>
+          <SettingsSection title="App">
+            <UpdateCard />
+            <TelemetryCard />
+          </SettingsSection>
+        </>
+      )}
       <SettingsSection title="Notifications" bare>
         <NotificationSettingsCard />
       </SettingsSection>

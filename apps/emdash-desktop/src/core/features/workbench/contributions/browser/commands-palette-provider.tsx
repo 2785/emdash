@@ -1,5 +1,6 @@
 import { Command } from 'cmdk';
 import { COMMAND_PALETTE_CATALOG } from '@core/manifests/shared/command-palette-catalog';
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import type { Chord } from '@core/primitives/keybindings/api';
 import { keybindingService } from '@core/primitives/keybindings/browser';
 import { Shortcut } from '@core/primitives/keybindings/browser/shortcut';
@@ -17,16 +18,18 @@ import { scopes, type ViewScopes } from '@core/primitives/view-scopes/browser';
 import { getCommandIcon } from '../../browser/command-palette/command-icons';
 import { PALETTE_ITEM_CLASS } from '../../browser/command-palette/palette-item-styles';
 
-const APP_IDLE_COMMAND_IDS = ['app.newProject', 'app.settings', 'app.giveFeedback'] as const;
-const PROJECT_IDLE_COMMAND_IDS = ['app.newTask', 'app.settings', 'app.giveFeedback'] as const;
-const TASK_IDLE_COMMAND_IDS = [
+// Feedback goes to the Emdash team, so Emjosh leaves it out.
+const withFeedback = <T extends string>(ids: readonly T[]) =>
+  IS_PERSONAL ? ids : ([...ids, 'app.giveFeedback'] as const);
+const APP_IDLE_COMMAND_IDS = withFeedback(['app.newProject', 'app.settings'] as const);
+const PROJECT_IDLE_COMMAND_IDS = withFeedback(['app.newTask', 'app.settings'] as const);
+const TASK_IDLE_COMMAND_IDS = withFeedback([
   'task.newConversation',
   'task.sidebarChanges',
   'task.sidebarFiles',
   'task.sidebarConversations',
   'task.toggleTerminalDrawer',
-  'app.giveFeedback',
-] as const;
+] as const);
 
 export interface CommandPaletteMatch extends PaletteProviderMatch {
   readonly item: CommandPaletteItemDef;

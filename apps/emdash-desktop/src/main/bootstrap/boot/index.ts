@@ -1,4 +1,6 @@
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import { closeAppDb } from '@main/db/instance';
+import { migrateEmjoshSecretsOnce } from '@main/host/secrets/emjosh-secrets-migration';
 import { startUserEnvCapture } from '@main/lib/userEnv';
 import { appScope } from '../core/app-scope';
 import type { AppConfig } from '../core/config';
@@ -28,6 +30,10 @@ export async function finishBoot(config: AppConfig): Promise<void> {
     startUserEnvCapture();
     database = await step('database', () => bootDatabase(config));
     const databaseBundle = database;
+    // Before anything reads secrets: data seeded from Emdash is encrypted with Emdash's key.
+    if (IS_PERSONAL) {
+      await stepOptional('emjosh-secrets-migration', () => migrateEmjoshSecretsOnce(database!.db));
+    }
     const infrastructure = await step('infrastructure', () => bootInfrastructure(databaseBundle));
     const runtimes = await step('runtimes', () => bootRuntimes(databaseBundle, infrastructure));
     const services = await step('services', () =>

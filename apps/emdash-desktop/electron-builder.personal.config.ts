@@ -22,7 +22,7 @@ const config: Configuration = {
     identity: null,
     hardenedRuntime: false,
     target: [{ target: 'dir', arch: ['arm64'] }],
-    icon: 'src/assets/images/emdash/emdash-canary.icns',
+    icon: 'src/assets/images/emjosh/emjosh.icns',
   },
 };
 

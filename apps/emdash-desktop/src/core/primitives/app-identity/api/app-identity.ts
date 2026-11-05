@@ -38,10 +38,9 @@ export function resolveAppIdentity({ dev, build }: { dev: boolean; build: string
       : pick({ stable: 'emdash', canary: 'emdash-canary', personal: 'emjosh' }),
     /**
      * Name passed to `app.setName`. Electron derives the safeStorage keychain entry
-     * ("<name> Safe Storage") from it, so Emjosh uses the stable name to decrypt secrets in data
-     * seeded from the official app (scripts/seed-emjosh-data.sh).
+     * ("<name> Safe Storage") from it.
      */
-    RUNTIME_APP_NAME: isPersonal ? 'Emdash' : productName,
+    RUNTIME_APP_NAME: productName,
     UPDATE_CHANNEL: isCanary ? 'v1-canary' : 'v1-stable',
     ARTIFACT_PREFIX: appNameLower,
     IS_CANARY: isCanary,
