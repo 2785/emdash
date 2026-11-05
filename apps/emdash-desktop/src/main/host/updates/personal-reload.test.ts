@@ -12,7 +12,11 @@ import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PersonalReloadService, RELOAD_HELPER_SCRIPT } from './personal-reload';
+import {
+  buildLaunchdJobPlist,
+  PersonalReloadService,
+  RELOAD_HELPER_SCRIPT,
+} from './personal-reload';
 
 vi.mock('@main/lib/logger', () => ({
   log: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -202,4 +206,33 @@ describe.runIf(process.platform === 'darwin')('reload helper script', () => {
     expect(existsSync(staged)).toBe(true);
     expect(result.opened).toBe('');
   }, 30_000);
+});
+
+describe.runIf(process.platform === 'darwin')('reload launchd job', () => {
+  it('builds a valid plist that carries the helper script byte for byte', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'personal-reload-plist-'));
+    try {
+      const plist = join(dir, 'job.plist');
+      const script = `${RELOAD_HELPER_SCRIPT}\nrm -f "a & b.plist"; launchctl remove "x"`;
+      writeFileSync(
+        plist,
+        buildLaunchdJobPlist({
+          label: 'com.emdash.personal.reload.test',
+          programArguments: ['/bin/bash', '-c', script, 'reload', '1', '/A & B.app', '', '120'],
+          logPath: join(dir, 'reload.log'),
+        })
+      );
+
+      execFileSync('plutil', ['-lint', plist]);
+      const extract = (key: string) =>
+        execFileSync('plutil', ['-extract', key, 'raw', '-o', '-', plist], {
+          encoding: 'utf8',
+        }).replace(/\n$/, '');
+      expect(extract('ProgramArguments.2')).toBe(script);
+      expect(extract('ProgramArguments.5')).toBe('/A & B.app');
+      expect(extract('RunAtLoad')).toBe('true');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

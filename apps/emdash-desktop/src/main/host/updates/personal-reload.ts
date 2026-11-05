@@ -1,4 +1,5 @@
-import { spawn } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -37,6 +38,33 @@ if [ -n "$staged" ] && [ -d "$staged" ]; then
 fi
 open "$target"
 `;
+
+const xmlEscape = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * A one-shot launchd job running `programArguments`. The helper runs as a launchd job rather
+ * than a child process because processes spawned from the app (or from shells inside it) can
+ * be torn down along with it when it quits.
+ */
+export function buildLaunchdJobPlist(job: {
+  label: string;
+  programArguments: string[];
+  logPath: string;
+}): string {
+  const args = job.programArguments.map((arg) => `<string>${xmlEscape(arg)}</string>`).join('');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>${xmlEscape(job.label)}</string>
+<key>ProgramArguments</key><array>${args}</array>
+<key>RunAtLoad</key><true/>
+<key>AbandonProcessGroup</key><true/>
+<key>StandardOutPath</key><string>${xmlEscape(job.logPath)}</string>
+<key>StandardErrorPath</key><string>${xmlEscape(job.logPath)}</string>
+</dict></plist>
+`;
+}
 
 type PersonalReloadDeps = {
   enabled: boolean;
@@ -124,21 +152,31 @@ export function createPersonalReloadService(electron: {
     pid: process.pid,
     readText: (path) => readFile(path, 'utf8'),
     spawnDetached: (args) => {
-      const env = { ...process.env };
-      delete env.ELECTRON_RUN_AS_NODE;
-      const logDir = dirname(PERSONAL_STAGE_DIR);
-      const child = spawn(
-        '/bin/bash',
-        [
-          '-c',
-          `mkdir -p "${logDir}"; exec >>"${logDir}/reload.log" 2>&1; ${RELOAD_HELPER_SCRIPT}`,
-          'reload',
-          ...args,
-        ],
-        { detached: true, stdio: 'ignore', env }
+      const jobDir = dirname(PERSONAL_STAGE_DIR);
+      const label = `com.emdash.personal.reload.${Date.now()}`;
+      const plistPath = join(jobDir, `${label}.plist`);
+      mkdirSync(jobDir, { recursive: true });
+      writeFileSync(
+        plistPath,
+        buildLaunchdJobPlist({
+          label,
+          programArguments: [
+            '/bin/bash',
+            '-c',
+            `${RELOAD_HELPER_SCRIPT}\nrm -f "${plistPath}"; launchctl remove "${label}"`,
+            'reload',
+            ...args,
+          ],
+          logPath: join(jobDir, 'reload.log'),
+        })
       );
-      child.unref();
-      log.info('Personal reload helper started', { pid: child.pid, staged: args[2] !== '' });
+      const result = spawnSync('launchctl', ['bootstrap', `gui/${process.getuid?.()}`, plistPath], {
+        encoding: 'utf8',
+      });
+      if (result.status !== 0) {
+        throw new Error(`Could not start the reload helper: ${result.stderr || result.error}`);
+      }
+      log.info('Personal reload helper started', { label, staged: args[2] !== '' });
     },
     quit: () => electron.quit(),
     emitStaged: (build) => updateEvents.emit(undefined, { type: 'personal-staged', build }),
