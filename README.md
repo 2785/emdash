@@ -42,9 +42,13 @@ pnpm install
 pnpm --dir apps/emdash-desktop run install:personal
 ```
 
-That builds `/Applications/Emjosh.app` and opens it. The first build creates a local
-self-signed code signing certificate ("Emjosh Local Signing") in your login keychain, so
-macOS remembers your keychain and privacy approvals across rebuilds.
+That builds `/Applications/Emjosh.app` and opens it.
+
+Signing: if your keychain has an **Apple Development** certificate (free with any Apple ID:
+Xcode → Settings → Accounts → Manage Certificates → + → Apple Development), builds are signed
+with it and macOS keeps your keychain approvals across rebuilds. Otherwise the first build
+creates a self-signed "Emjosh Local Signing" certificate, and macOS asks for keychain access
+once after each rebuild.
 
 Coming from Emdash? Copy your projects, tasks, and conversations over once, with Emjosh
 closed:
