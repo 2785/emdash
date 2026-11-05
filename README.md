@@ -71,27 +71,16 @@ problems to them.
 
 ## Install (macOS, Apple Silicon)
 
-There are no prebuilt releases yet; for now you build it yourself. You need `pnpm` (any
-version; the repo pins its own pnpm and Node) and the Xcode command line tools
-(`xcode-select --install`).
+Download `Emjosh-mac-arm64.zip` from the
+[latest release](https://github.com/2785/emjosh/releases/latest), unzip it, and move
+`Emjosh.app` to Applications.
 
-```bash
-git clone https://github.com/2785/emjosh.git
-cd emjosh
-pnpm install
-pnpm --dir apps/emdash-desktop run install:personal
-```
-
-That builds `/Applications/Emjosh.app` and opens it.
-
-Signing: if your keychain has an **Apple Development** certificate (free with any Apple ID:
-Xcode → Settings → Accounts → Manage Certificates → + → Apple Development), builds are signed
-with it and macOS keeps your keychain approvals across rebuilds. Otherwise the first build
-creates a self-signed "Emjosh Local Signing" certificate, and macOS asks for keychain access
-once after each rebuild.
+Releases are signed but not notarized by Apple, so the first launch is blocked with "Apple could
+not verify…". Right-click `Emjosh.app` → *Open* → *Open* once (or allow it under System Settings →
+Privacy & Security). After that it opens normally.
 
 Coming from Emdash? Copy your projects, tasks, and conversations over once, with Emjosh
-closed:
+closed (needs a clone of this repository and `pnpm`):
 
 ```bash
 pnpm --dir apps/emdash-desktop run seed:emjosh
@@ -102,13 +91,43 @@ key and re-encrypts them under its own.
 
 ## Updating
 
+Emjosh checks for new releases every hour and downloads them in the background; the sidebar
+button then reads *Reload · new build*. Click it to restart on the new version. Updates are
+only installed if they are signed with the same certificate as the running app.
+
+## Building it yourself
+
+You need `pnpm` (any version; the repo pins its own pnpm and Node) and the Xcode command line
+tools (`xcode-select --install`).
+
 ```bash
-git pull
+git clone https://github.com/2785/emjosh.git
+cd emjosh
+pnpm install
 pnpm --dir apps/emdash-desktop run install:personal
 ```
 
-If Emjosh is running, the new build is staged and the sidebar button turns into
-*Reload · new build*. Click it to restart on the new build.
+That builds `/Applications/Emjosh.app` and opens it, or, if Emjosh is running, stages the build
+for its Reload button.
+
+Signing: if your keychain has an **Apple Development** certificate (free with any Apple ID:
+Xcode → Settings → Accounts → Manage Certificates → + → Apple Development), builds are signed
+with it and macOS keeps your keychain approvals across rebuilds. Otherwise the first build
+creates a self-signed "Emjosh Local Signing" certificate, and macOS asks for keychain access
+once after each rebuild. Self-built copies still receive release updates only if they're signed
+with the release certificate.
+
+## Releasing
+
+From a clean checkout of merged `main`, signed in to `gh` as the repository owner:
+
+```bash
+pnpm --dir apps/emdash-desktop run release          # next patch version
+pnpm --dir apps/emdash-desktop run release minor    # or major, or an explicit X.Y.Z
+```
+
+It builds and signs the app, then publishes the zip and an update manifest as a GitHub release.
+Only the repository owner can publish releases, and release tags can't be moved or deleted.
 
 ## Development
 

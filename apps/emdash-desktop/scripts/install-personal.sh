@@ -26,7 +26,8 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 ditto "release/mac-arm64/$APP_NAME.app" "$STAGE/$APP_NAME.app"
 commit="$(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . || echo '-dirty')"
-printf '{"builtAt":"%s","commit":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$commit" >"$STAGE/build.json"
+version="$(plutil -extract CFBundleShortVersionString raw "$STAGE/$APP_NAME.app/Contents/Info.plist")"
+printf '{"builtAt":"%s","commit":"%s","version":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$commit" "$version" >"$STAGE/build.json"
 
 if is_running "$PERSONAL_BIN"; then
   echo "Staged $commit. Click Reload in $APP_NAME to switch to it."

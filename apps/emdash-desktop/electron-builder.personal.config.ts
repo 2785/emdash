@@ -13,7 +13,11 @@ const config: Configuration = {
   appId: APP_ID,
   productName: PRODUCT_NAME,
   executableName: PRODUCT_NAME,
-  extraMetadata: { desktopName: `${LINUX_DESKTOP_ID}.desktop` },
+  extraMetadata: {
+    desktopName: `${LINUX_DESKTOP_ID}.desktop`,
+    // Emjosh's own release version (scripts/package-personal.sh), not upstream's.
+    ...(process.env.EMJOSH_VERSION ? { version: process.env.EMJOSH_VERSION } : {}),
+  },
   artifactName: `${APP_NAME_LOWER}-\${arch}.\${ext}`,
   publish: null,
   mac: {

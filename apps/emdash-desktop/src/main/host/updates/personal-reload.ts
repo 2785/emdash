@@ -134,6 +134,7 @@ export class PersonalReloadService {
       return {
         builtAt: raw.builtAt,
         ...(typeof raw.commit === 'string' ? { commit: raw.commit } : {}),
+        ...(typeof raw.version === 'string' ? { version: raw.version } : {}),
       };
     } catch {
       return null;
