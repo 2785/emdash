@@ -197,7 +197,7 @@ async function download(url: string, path: string): Promise<{ sha512: string; si
 }
 
 export function releaseAssetUrl(version: string, asset: PersonalReleaseAsset): string {
-  return `https://github.com/${PERSONAL_RELEASES_REPO}/releases/download/v${version}/${asset.file}`;
+  return `https://github.com/${PERSONAL_RELEASES_REPO}/releases/download/emjosh-v${version}/${asset.file}`;
 }
 
 /** Unpacks the downloaded zip and checks the app is signed like the running one. */

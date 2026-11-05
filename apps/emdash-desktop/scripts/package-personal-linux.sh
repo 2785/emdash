@@ -15,7 +15,7 @@ IMAGE='node:24-bullseye'
 OUT='release/linux-x64'
 
 # Same version rules as scripts/package-personal.sh.
-EMJOSH_VERSION="${EMJOSH_VERSION:-$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null | sed 's/^v//')}"
+EMJOSH_VERSION="${EMJOSH_VERSION:-$(bash scripts/emjosh-version.sh)}"
 export EMJOSH_VERSION="${EMJOSH_VERSION:-0.0.1}"
 
 docker --context "$CONTEXT" info >/dev/null 2>&1 || {
