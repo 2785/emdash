@@ -571,13 +571,23 @@ const ComposerForStore = observer(function ComposerForStore({
   );
   const composerOptions =
     providerOptions ?? selectCachedProviderOptions(settings.catalogs, store.configuredOptions);
-  const renderMentionIcon = useCallback(({ id, kind }: { id: string; kind: string }) => {
-    if (id === diffCommentsMention.id) return <MessageSquare size={12} />;
-    if (kind !== 'issue') return null;
-    const target = parseIssueMentionToken(id);
-    if (!target) return null;
-    return <IntegrationIcon provider={target.provider} size={12} />;
-  }, []);
+  const renderMentionIcon = useCallback(
+    ({ id, kind }: { id: string; kind: string }) => {
+      if (id === diffCommentsMention.id) return <MessageSquare size={12} />;
+      // An inline "[Image N]" pill shows a thumbnail of its image.
+      const image = store.draftAttachments.find(({ ref }) => ref.id === id);
+      if (image?.previewUrl) {
+        return (
+          <img src={image.previewUrl} alt="" className="size-3.5 rounded-[3px] object-cover" />
+        );
+      }
+      if (kind !== 'issue') return null;
+      const target = parseIssueMentionToken(id);
+      if (!target) return null;
+      return <IntegrationIcon provider={target.provider} size={12} />;
+    },
+    [store]
+  );
 
   const querySlashItems = useCallback(
     async (query: string): Promise<CommandItem[]> => {
