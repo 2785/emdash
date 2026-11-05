@@ -11,7 +11,7 @@ export const ProjectsGroupLabel = observer(function ProjectsGroupLabel() {
   return (
     <div className="flex h-[40px] items-center justify-between pr-2.5 pl-5">
       <MicroLabel className="font-medium text-foreground-tertiary-passive">
-        {getSidebarStore().groupBy === 'none' ? 'Tasks' : 'Projects'}
+        {getSidebarStore().groupBy === 'project' ? 'Projects' : 'Tasks'}
       </MicroLabel>
       <div className="flex items-center gap-1">
         <DropdownMenu.Root>
@@ -62,6 +62,12 @@ export const ProjectsGroupLabel = observer(function ProjectsGroupLabel() {
                   onClick={() => getSidebarStore().setGroupBy('project')}
                 >
                   Project
+                </DropdownMenu.RadioItem>
+                <DropdownMenu.RadioItem
+                  value="initiative"
+                  onClick={() => getSidebarStore().setGroupBy('initiative')}
+                >
+                  Initiative
                 </DropdownMenu.RadioItem>
                 <DropdownMenu.RadioItem
                   value="none"

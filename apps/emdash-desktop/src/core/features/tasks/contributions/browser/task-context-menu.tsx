@@ -17,6 +17,8 @@ interface TaskContextMenuProps {
   onReconnect?: () => void;
   onConvertAutomation?: () => void;
   onDelete: () => void;
+  /** Extra items shown after Rename (e.g. initiative membership). */
+  extraItems?: React.ReactNode;
 }
 
 export function TaskContextMenu({
@@ -34,6 +36,7 @@ export function TaskContextMenu({
   onReconnect,
   onConvertAutomation,
   onDelete,
+  extraItems,
 }: TaskContextMenuProps) {
   const archiveDisabledReasonId = React.useId();
   const handleCopyBranchName = async () => {
@@ -69,6 +72,7 @@ export function TaskContextMenu({
           <Pencil className="size-4" />
           Rename
         </ContextMenu.Item>
+        {extraItems}
         {onReconnect && (
           <ContextMenu.Item onClick={onReconnect}>
             <RotateCcw className="size-4" />

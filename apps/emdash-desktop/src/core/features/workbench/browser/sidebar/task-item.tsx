@@ -1,3 +1,5 @@
+import { ContextMenu } from '@emdash/ui/react/primitives';
+import { Layers } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
 import { getProjectStore } from '@core/features/projects/api/browser/stores/project-selectors';
 import { projectViewDef } from '@core/features/projects/contributions/views';
@@ -23,6 +25,7 @@ import {
   useWorkspaceSlots,
 } from '@core/primitives/navigation/browser/navigation-hooks';
 import { cn } from '@core/primitives/styling/browser/cn';
+import { registeredTaskData } from '@core/primitives/task-state/browser/task-state';
 import { selectCurrentPr } from '@root/src/core/services/pull-requests/api';
 import { PrBadge } from '@root/src/core/services/pull-requests/browser/components/pr-badge';
 import { SidebarMenuAction, SidebarMenuRow } from './sidebar-primitives';
@@ -45,6 +48,7 @@ export const SidebarTaskItem = observer(function SidebarTaskItem({
   const { navigate } = useNavigate();
   const openRename = useOpenModal('renameTaskModal');
   const openDeleteTask = useOpenModal('deleteTaskModal');
+  const openInitiativePicker = useOpenModal('initiativePickerModal');
 
   const { currentView } = useWorkspaceSlots();
   const params = useViewParams(taskViewDef);
@@ -110,6 +114,19 @@ export const SidebarTaskItem = observer(function SidebarTaskItem({
       onReconnect={handleReconnect}
       onConvertAutomation={undefined}
       onDelete={handleDelete}
+      extraItems={
+        <ContextMenu.Item
+          onClick={() =>
+            void openInitiativePicker({
+              taskIds: [taskId],
+              currentInitiativeId: registeredTaskData(task)?.initiativeId,
+            })
+          }
+        >
+          <Layers className="size-4" />
+          Initiative…
+        </ContextMenu.Item>
+      }
     >
       <SidebarMenuRow
         className={cn(

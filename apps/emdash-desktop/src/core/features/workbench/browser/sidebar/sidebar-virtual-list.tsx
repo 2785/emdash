@@ -34,6 +34,7 @@ import {
   useViewParams,
   useWorkspaceSlots,
 } from '@core/primitives/navigation/browser/navigation-hooks';
+import { SidebarInitiativeHeader } from './initiative-header';
 import { SidebarProjectItem } from './project-item';
 import { SidebarTaskItem } from './task-item';
 
@@ -42,7 +43,7 @@ const ROW_HEIGHT = 32;
 export const SidebarVirtualList = observer(function SidebarVirtualList() {
   const rows = getSidebarStore().sidebarRows;
   // Manual drag order is per project, so ungrouped lists only follow the sort.
-  const flat = getSidebarStore().groupBy === 'none';
+  const flat = getSidebarStore().groupBy !== 'project';
   const { currentView } = useWorkspaceSlots();
   const taskParams = useViewParams(taskViewDef) ?? {
     projectId: undefined,
@@ -220,6 +221,22 @@ export const SidebarVirtualList = observer(function SidebarVirtualList() {
                 width: '100%',
                 height: `${vItem.size}px`,
               };
+              if (row.kind === 'initiative') {
+                return (
+                  <SortableRow
+                    key={`initiative:${row.initiativeId ?? 'other'}`}
+                    dndId={dndId}
+                    style={vStyle}
+                    disabled
+                  >
+                    <SidebarInitiativeHeader
+                      initiativeId={row.initiativeId}
+                      label={row.label}
+                      count={row.count}
+                    />
+                  </SortableRow>
+                );
+              }
               if (row.kind === 'project') {
                 return (
                   <SortableRow key={row.projectId} dndId={dndId} style={vStyle}>
@@ -261,6 +278,7 @@ type SidebarDndId =
   | { kind: 'task'; projectId: string; taskId: string };
 
 function rowToDndId(row: SidebarRow): string {
+  if (row.kind === 'initiative') return `initiative::${row.initiativeId ?? 'other'}`;
   if (row.kind === 'project') return toProjectDndId(row.projectId);
   return toTaskDndId(row.projectId, row.taskId);
 }

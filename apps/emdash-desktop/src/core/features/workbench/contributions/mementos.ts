@@ -9,8 +9,11 @@ const workbenchSidebarV1Schema = z.object({
   projectOrder: z.array(z.string()),
   taskOrderByProject: z.record(z.string(), z.array(z.string())),
   taskSortBy: z.enum(['created-at', 'updated-at']),
-  /** 'none' lists every task in one list instead of under its project. */
-  groupBy: z.enum(['project', 'none']).default('project'),
+  /**
+   * 'none' lists every task in one list instead of under its project; 'initiative' groups that
+   * list by initiative.
+   */
+  groupBy: z.enum(['project', 'initiative', 'none']).default('project'),
 });
 
 export const workbenchSidebarSchema = defineVersionedSchema()
