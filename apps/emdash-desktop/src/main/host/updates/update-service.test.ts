@@ -65,6 +65,7 @@ describe('desktop update lifecycle', () => {
         fetchReleaseNotes: async () => null,
         getPersonalBuild: () => ({ enabled: false, staged: null }),
         reloadPersonalBuild: vi.fn(),
+        checkPersonalUpdates: vi.fn(),
         formatError: formatUpdaterError,
       })
     );

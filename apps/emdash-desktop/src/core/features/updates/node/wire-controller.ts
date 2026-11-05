@@ -11,6 +11,7 @@ export type UpdateOperations = {
   fetchReleaseNotes(): Promise<string | null>;
   getPersonalBuild(): PersonalBuildState;
   reloadPersonalBuild(): void;
+  checkPersonalUpdates(): Promise<void>;
   formatError(error: unknown): string;
 };
 
@@ -54,6 +55,14 @@ export function createUpdatesWireController(updateOperations: UpdateOperations):
     getPersonalBuild: async () => {
       try {
         return { success: true as const, data: updateOperations.getPersonalBuild() };
+      } catch (error) {
+        return { success: false as const, error: updateOperations.formatError(error) };
+      }
+    },
+    checkPersonalUpdates: async () => {
+      try {
+        await updateOperations.checkPersonalUpdates();
+        return { success: true as const };
       } catch (error) {
         return { success: false as const, error: updateOperations.formatError(error) };
       }

@@ -65,6 +65,8 @@ export const updatesContract = defineContract({
   getPersonalBuild: procedure({ input: voidInput, output: z.custom<PersonalBuildStateResult>() }),
   /** Personal builds only: quit cleanly and reopen, installing the staged build if there is one. */
   reloadPersonalBuild: procedure({ input: voidInput, output: z.custom<UpdateActionResult>() }),
+  /** Emjosh's "Check for Updates…"; reports the outcome in native dialogs. */
+  checkPersonalUpdates: procedure({ input: voidInput, output: z.custom<UpdateActionResult>() }),
   events: eventStream({
     key: z.void(),
     event: z.custom<DesktopUpdateEvent>(),

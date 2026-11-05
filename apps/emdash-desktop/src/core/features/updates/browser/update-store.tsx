@@ -167,6 +167,19 @@ export class UpdateStore {
     }
   }
 
+  /** Emjosh's "Check for Updates…"; main reports the outcome in native dialogs. */
+  async checkPersonalUpdates(): Promise<void> {
+    try {
+      const client = await getUpdatesClient();
+      const res = await client.checkPersonalUpdates(undefined);
+      if (!res.success) throw new Error(res.error);
+    } catch (error) {
+      toast.error('Update check failed', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   async reloadPersonalBuild(): Promise<void> {
     if (this.reloading) return;
     runInAction(() => {

@@ -16,7 +16,8 @@ export const PERSONAL_RELEASES_REPO = '2785/emjosh';
 /** Release asset describing the release; keep in sync with scripts/release.sh. */
 export const PERSONAL_MANIFEST_ASSET = 'emjosh-update.json';
 
-const STARTUP_DELAY_MS = 30_000;
+// Soon after launch, so reopening the app is enough to pick up a new release.
+const STARTUP_DELAY_MS = 5_000;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Platforms Emjosh is released for, as keys of a manifest's `assets`. */
@@ -114,7 +115,12 @@ export type PersonalUpdateDeps = {
   stage(manifest: PersonalReleaseManifest, asset: PersonalReleaseAsset): Promise<void>;
 };
 
-export type PersonalUpdateResult = 'disabled' | 'up-to-date' | 'already-staged' | 'staged';
+export type PersonalUpdateResult =
+  | { status: 'disabled' }
+  /** `current` is this app's version. */
+  | { status: 'up-to-date'; current: string }
+  /** `version` is the release waiting for Reload. */
+  | { status: 'already-staged' | 'staged'; version: string };
 
 /**
  * Checks the fork's GitHub releases and stages newer builds where `install:personal` stages
@@ -139,8 +145,12 @@ export class PersonalUpdateService {
     this.timer.unref?.();
   }
 
-  check(): Promise<PersonalUpdateResult> {
-    this.running ??= this.performCheck().finally(() => {
+  /**
+   * Checks now, downloading and staging a newer release. `onDownloading` runs before a download
+   * starts; a check already in progress is joined instead, without calling it.
+   */
+  check(options: { onDownloading?(version: string): void } = {}): Promise<PersonalUpdateResult> {
+    this.running ??= this.performCheck(options.onDownloading).finally(() => {
       this.running = null;
     });
     return this.running;
@@ -152,16 +162,22 @@ export class PersonalUpdateService {
     this.timer = undefined;
   }
 
-  private async performCheck(): Promise<PersonalUpdateResult> {
-    if (!this.deps.enabled || !this.deps.platform) return 'disabled';
+  private async performCheck(
+    onDownloading?: (version: string) => void
+  ): Promise<PersonalUpdateResult> {
+    if (!this.deps.enabled || !this.deps.platform) return { status: 'disabled' };
     const manifest = parseReleaseManifest(await this.deps.fetchManifest());
     const asset = manifest?.assets[this.deps.platform];
-    if (!manifest || !asset) return 'up-to-date';
-    if (!isNewerVersion(manifest.version, await this.deps.currentVersion())) return 'up-to-date';
-    if ((await this.deps.stagedVersion()) === manifest.version) return 'already-staged';
+    const current = await this.deps.currentVersion();
+    if (!manifest || !asset || !isNewerVersion(manifest.version, current)) {
+      return { status: 'up-to-date', current };
+    }
+    const { version } = manifest;
+    if ((await this.deps.stagedVersion()) === version) return { status: 'already-staged', version };
+    onDownloading?.(version);
     await this.deps.stage(manifest, asset);
-    log.info('Staged Emjosh release', { version: manifest.version });
-    return 'staged';
+    log.info('Staged Emjosh release', { version });
+    return { status: 'staged', version };
   }
 }
 
