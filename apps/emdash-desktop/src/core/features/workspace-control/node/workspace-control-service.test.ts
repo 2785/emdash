@@ -35,6 +35,8 @@ function setup(rows: Omit<ControlWorkspace, 'pullRequest'>[]) {
       conversationId === 'conv-self' ? { taskId: 'self', provider: 'claude' } : null
     ),
     archiveWorkspace: vi.fn(async () => {}),
+    renameWorkspace: vi.fn(async () => {}),
+    preserveNameCapitalization: vi.fn(async () => false),
     createWorkspace: vi.fn(async () => ({ id: 'new', name: 'new', branch: 'new' })),
     onArchived: vi.fn(),
   } satisfies WorkspaceControlDeps;
@@ -95,6 +97,42 @@ describe('WorkspaceControlService', () => {
       provider: 'codex',
       prompt: 'go',
     });
+  });
+
+  it("names the caller's workspace while it has its placeholder name", async () => {
+    const { service, deps } = setup([
+      workspace({ id: 'self', name: 'dull-geese-try', projectId: 'p1' }),
+      workspace({ id: 'other', name: 'remove-sandbox-expiry', projectId: 'p1' }),
+      workspace({ id: 'elsewhere', name: 'fix-login', projectId: 'p2' }),
+    ]);
+
+    await expect(
+      service.renameWorkspace({ conversationId: 'conv-self' }, { name: 'Remove sandbox expiry' })
+    ).resolves.toEqual({ renamed: true, name: 'remove-sandbox-expiry-2' });
+    expect(deps.renameWorkspace).toHaveBeenCalledWith('p1', 'self', 'remove-sandbox-expiry-2');
+
+    await service.renameWorkspace({ conversationId: 'conv-self' }, { name: 'Fix login' });
+    expect(deps.renameWorkspace).toHaveBeenLastCalledWith('p1', 'self', 'fix-login');
+  });
+
+  it('keeps a chosen name unless the user asked for the rename', async () => {
+    const { service, deps } = setup([workspace({ id: 'self', name: 'krak-1029-sftp' })]);
+    const caller = { conversationId: 'conv-self' };
+
+    await expect(
+      service.renameWorkspace(caller, { name: 'something else' })
+    ).resolves.toMatchObject({ renamed: false, name: 'krak-1029-sftp' });
+    expect(deps.renameWorkspace).not.toHaveBeenCalled();
+
+    await service.renameWorkspace(caller, { name: 'something else', userRequested: true });
+    expect(deps.renameWorkspace).toHaveBeenCalledWith('p1', 'self', 'something-else');
+  });
+
+  it('only renames for callers running in a workspace', async () => {
+    const { service } = setup([workspace({ id: 'self', name: 'dull-geese-try' })]);
+    await expect(service.renameWorkspace({ conversationId: null }, { name: 'x' })).rejects.toThrow(
+      'Only an agent running in an Emjosh workspace'
+    );
   });
 
   it('describes the calling workspace', async () => {

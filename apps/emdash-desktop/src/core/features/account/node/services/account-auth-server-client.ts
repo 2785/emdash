@@ -8,7 +8,7 @@ import {
   unknownErrorMessage,
 } from '../account-errors';
 import type { SessionValidationResult } from '../account-types';
-import { ACCOUNT_CONFIG } from '../config';
+import { ACCOUNT_CONFIG, authServerFetch } from '../config';
 
 /** Renewal runs on credential reads; the server may wait up to 10s for an account lock. */
 const PROVIDER_TOKEN_TIMEOUT_MS = 30_000;
@@ -19,7 +19,7 @@ export class AccountAuthServerClient {
   ): Promise<Result<SessionValidationResult, AccountSessionValidationError>> {
     const { baseUrl } = ACCOUNT_CONFIG.authServer;
     try {
-      const response = await fetch(`${baseUrl}/api/auth/get-session`, {
+      const response = await authServerFetch(`${baseUrl}/api/auth/get-session`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(3000),
@@ -40,13 +40,16 @@ export class AccountAuthServerClient {
     let response: Response;
 
     try {
-      response = await fetch(`${baseUrl}/api/v1/auth/electron/account-link/start?${query}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${sessionToken}`,
-        },
-        signal: AbortSignal.timeout(ACCOUNT_CONFIG.authServer.authTimeoutMs),
-      });
+      response = await authServerFetch(
+        `${baseUrl}/api/v1/auth/electron/account-link/start?${query}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${sessionToken}`,
+          },
+          signal: AbortSignal.timeout(ACCOUNT_CONFIG.authServer.authTimeoutMs),
+        }
+      );
     } catch (error) {
       return err({
         type: 'auth_server_error',
@@ -104,7 +107,7 @@ export class AccountAuthServerClient {
     const { baseUrl } = ACCOUNT_CONFIG.authServer;
     let response: Response;
     try {
-      response = await fetch(`${baseUrl}/api/v1/auth/electron/provider-token`, {
+      response = await authServerFetch(`${baseUrl}/api/v1/auth/electron/provider-token`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${sessionToken}`,
@@ -154,7 +157,7 @@ export class AccountAuthServerClient {
   async checkHealth(): Promise<boolean> {
     const { baseUrl } = ACCOUNT_CONFIG.authServer;
     try {
-      const response = await fetch(`${baseUrl}/health`, {
+      const response = await authServerFetch(`${baseUrl}/health`, {
         signal: AbortSignal.timeout(3000),
       });
       return response.ok;

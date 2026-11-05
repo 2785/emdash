@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { liveTransformTaskName } from '@core/features/tasks/api/browser/taskNames';
+import { liveTransformTaskName } from '@core/features/tasks/api/task-names';
 
 export type TaskNameState = {
   /** The user's typed value — may be empty if they haven't typed anything yet. */

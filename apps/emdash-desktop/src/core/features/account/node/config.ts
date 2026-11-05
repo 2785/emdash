@@ -1,4 +1,24 @@
+import { IS_PERSONAL, PRODUCT_NAME } from '@core/primitives/app-identity/api/app-identity';
+
 const PRODUCTION_AUTH_SERVER_URL = 'https://auth.emdash.sh';
+
+/**
+ * Emjosh has no Emdash account, so it never contacts Emdash's auth server, not even with a
+ * session copied over from Emdash. Requests fail like an unreachable server.
+ */
+export const AUTH_SERVER_DISABLED = IS_PERSONAL;
+
+const disabledError = () => new Error(`${PRODUCT_NAME} does not use Emdash accounts`);
+
+/** `fetch` for the auth server; see {@link AUTH_SERVER_DISABLED}. */
+export function authServerFetch(url: string, init?: RequestInit): Promise<Response> {
+  if (AUTH_SERVER_DISABLED) return Promise.reject(disabledError());
+  return fetch(url, init);
+}
+
+export function assertAuthServerEnabled(): void {
+  if (AUTH_SERVER_DISABLED) throw disabledError();
+}
 
 export const ACCOUNT_CONFIG = {
   authServer: {

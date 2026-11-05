@@ -1,24 +1,11 @@
-import { adjectives, nouns, verbs } from 'human-id';
 import {
   ensureUniqueTaskName,
+  isRandomTaskName,
   normalizeTaskName,
-} from '@core/features/tasks/api/browser/taskNames';
+} from '@core/features/tasks/api/task-names';
 import { taskNamingMemento } from '@core/features/tasks/contributions/mementos';
 import { taskSubject } from '@core/features/tasks/contributions/subject';
 import { getMementoClient } from '@core/primitives/mementos/browser';
-
-const lower = (words: string[]) => new Set(words.map((word) => word.toLowerCase()));
-const ADJECTIVES = lower(adjectives);
-const NOUNS = lower(nouns);
-const VERBS = lower(verbs);
-
-/** True for Emdash's random placeholder names ("wicked-items-smile"). */
-export function isRandomTaskName(name: string): boolean {
-  const [adjective, noun, verb, ...rest] = name.toLowerCase().split('-');
-  return (
-    rest.length === 0 && ADJECTIVES.has(adjective) && NOUNS.has(noun ?? '') && VERBS.has(verb ?? '')
-  );
-}
 
 function namingHandle(taskId: string) {
   return getMementoClient().subject(taskSubject({ taskId })).handle(taskNamingMemento);

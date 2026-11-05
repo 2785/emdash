@@ -71,6 +71,7 @@ export default defineConfig({
           setupFiles: nodeSetupFiles,
           include: [
             'src/core/features/**/*.db.test.ts',
+            'src/core/manifests/**/*.db.test.ts',
             'src/core/services/**/*.db.test.ts',
             'src/main/core/**/*.db.test.ts',
             'src/main/db/legacy-port/**/*.test.ts',

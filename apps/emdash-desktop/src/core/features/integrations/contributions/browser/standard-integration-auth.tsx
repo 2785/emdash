@@ -70,9 +70,12 @@ export function StandardIntegrationAuth({
   }
 
   // With an Emdash account, signing in through Emdash replaces device sign-in;
-  // reconnecting a device sign-in account still offers it.
+  // reconnecting a device sign-in account still offers it. Emjosh never offers it: the
+  // device flow uses Emdash's registered OAuth apps.
   const showDeviceFlow =
-    hasMethod('oauth-device') && (!oauth || session?.hasAccount !== true || !!accountId);
+    !IS_PERSONAL &&
+    hasMethod('oauth-device') &&
+    (!oauth || session?.hasAccount !== true || !!accountId);
   const methods: IntegrationAuthMethodOption[] = [
     ...(oauth ? [oauth] : []),
     ...extraMethods,

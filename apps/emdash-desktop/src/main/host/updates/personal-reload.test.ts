@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
 } from 'node:fs';
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,8 +15,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildLaunchdJobPlist,
+  LINUX_RELOAD_HELPER_SCRIPT,
   PersonalReloadService,
+  personalCacheDir,
   RELOAD_HELPER_SCRIPT,
+  runningAppPath,
+  stagedArtifactName,
 } from './personal-reload';
 
 vi.mock('@main/lib/logger', () => ({
@@ -27,7 +32,7 @@ function makeService(overrides: Partial<ConstructorParameters<typeof PersonalRel
   const deps = {
     enabled: true,
     stageDir: '/stage',
-    productName: 'Emjosh',
+    artifactName: 'Emjosh.app',
     bundlePath: '/Applications/Emjosh.app',
     pid: 4242,
     readText: vi.fn(async (): Promise<string> => {
@@ -235,4 +240,102 @@ describe.runIf(process.platform === 'darwin')('reload launchd job', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+});
+
+describe('platform paths', () => {
+  it('stages under the platform cache directory', () => {
+    expect(personalCacheDir('darwin', {})).toMatch(/\/Library\/Caches\/emjosh$/);
+    expect(personalCacheDir('linux', {})).toMatch(/\/\.cache\/emjosh$/);
+    expect(personalCacheDir('linux', { XDG_CACHE_HOME: '/xdg' })).toBe('/xdg/emjosh');
+  });
+
+  it('stages the bundle on macOS and the AppImage on Linux', () => {
+    expect(stagedArtifactName('darwin', 'Emjosh')).toBe('Emjosh.app');
+    expect(stagedArtifactName('linux', 'Emjosh')).toBe('Emjosh.AppImage');
+  });
+
+  it('reloads on Linux only when running from an AppImage', () => {
+    expect(runningAppPath('linux', { APPIMAGE: '/home/me/Emjosh.AppImage' })).toBe(
+      '/home/me/Emjosh.AppImage'
+    );
+    expect(runningAppPath('linux', {})).toBeNull();
+    expect(runningAppPath('win32', {})).toBeNull();
+  });
+});
+
+describe.runIf(process.platform !== 'win32')('Linux reload helper script', () => {
+  let root: string;
+
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  /** A fake AppImage: a script that records which build was launched. */
+  function writeAppImage(path: string, label: string): void {
+    mkdirSync(join(path, '..'), { recursive: true });
+    writeFileSync(path, `#!/bin/sh\necho ${label} >> "${join(root, 'launched')}"\n`);
+    chmodSync(path, 0o644);
+  }
+
+  function runHelper(args: { pid: number; target: string; staged: string }) {
+    const result = spawnSync(
+      '/bin/sh',
+      ['-c', LINUX_RELOAD_HELPER_SCRIPT, 'reload', String(args.pid), args.target, args.staged, '2'],
+      { encoding: 'utf8' }
+    );
+    // The relaunch is backgrounded; give it a moment.
+    spawnSync('/bin/sh', ['-c', 'sleep 0.5']);
+    const launched = existsSync(join(root, 'launched'))
+      ? readFileSync(join(root, 'launched'), 'utf8').trim()
+      : '';
+    return { ...result, launched };
+  }
+
+  function deadPid(): number {
+    return Number(spawnSync('/bin/sh', ['-c', 'echo $$']).stdout.toString().trim());
+  }
+
+  function setup() {
+    root = mkdtempSync(join(tmpdir(), 'personal-reload-linux-'));
+    const target = join(root, 'Applications', 'Emjosh.AppImage');
+    const staged = join(root, 'cache', 'staged', 'Emjosh.AppImage');
+    writeAppImage(target, 'old');
+    chmodSync(target, 0o755);
+    writeAppImage(staged, 'new');
+    return { target, staged };
+  }
+
+  it('swaps in the staged AppImage after the app exits and launches it', () => {
+    const { target } = setup();
+
+    const result = runHelper({
+      pid: deadPid(),
+      target,
+      staged: join(root, 'cache', 'staged', 'Emjosh.AppImage'),
+    });
+
+    expect(result.stdout).toContain('installed staged build');
+    expect(readFileSync(target, 'utf8')).toContain('echo new');
+    expect(statSync(target).mode & 0o111).not.toBe(0);
+    expect(existsSync(join(root, 'cache', 'staged'))).toBe(false);
+    expect(existsSync(`${target}.previous`)).toBe(false);
+    expect(result.launched).toBe('new');
+  }, 30_000);
+
+  it('just relaunches when nothing is staged', () => {
+    const { target } = setup();
+
+    const result = runHelper({ pid: deadPid(), target, staged: '' });
+
+    expect(readFileSync(target, 'utf8')).toContain('echo old');
+    expect(result.launched).toBe('old');
+  }, 30_000);
+
+  it('does nothing when the app is still running after the wait', () => {
+    const { target, staged } = setup();
+
+    const result = runHelper({ pid: process.pid, target, staged });
+
+    expect(result.stdout).toContain('reload cancelled');
+    expect(readFileSync(target, 'utf8')).toContain('echo old');
+    expect(result.launched).toBe('');
+  }, 30_000);
 });

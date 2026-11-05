@@ -23,7 +23,7 @@ export type UpdateProgress = {
 };
 
 /** A build staged by `pnpm run install:personal`, waiting for a reload to be installed. */
-export type PersonalStagedBuild = { builtAt: string; commit?: string };
+export type PersonalStagedBuild = { builtAt: string; commit?: string; version?: string };
 export type PersonalBuildState = { enabled: boolean; staged: PersonalStagedBuild | null };
 export type PersonalBuildStateResult =
   | { success: true; data: PersonalBuildState }

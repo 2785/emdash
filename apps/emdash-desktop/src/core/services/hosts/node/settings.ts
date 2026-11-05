@@ -1,3 +1,4 @@
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import type { HostSettings } from '@core/primitives/app-settings/api';
 import { defineSettingsContribution } from '@core/primitives/settings/api';
 import { hostSettingsSchemaContribution } from '../contributions/settings';
@@ -8,8 +9,9 @@ import { hostSettingsSchemaContribution } from '../contributions/settings';
 export const hostSettingsContribution = defineSettingsContribution<'remoteMachine', HostSettings>({
   ...hostSettingsSchemaContribution,
   defaults: () => ({
+    // Emdash publishes the workspace server; Emjosh doesn't yet, so it has no default.
     installBaseUrl:
       process.env['EMDASH_WORKSPACE_SERVER_ARTIFACTS_URL'] ??
-      'https://releases.emdash.sh/workspace-server',
+      (IS_PERSONAL ? '' : 'https://releases.emdash.sh/workspace-server'),
   }),
 });

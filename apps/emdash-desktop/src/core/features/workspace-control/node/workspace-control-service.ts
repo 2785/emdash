@@ -1,4 +1,5 @@
 import type { Initiative, InitiativeMessage } from '@core/features/initiatives/api/contract';
+import { ensureUniqueTaskName, isRandomTaskName } from '@core/features/tasks/api/task-names';
 
 /**
  * Workspace control: what an agent (inside Emjosh today, any MCP client later) can do with
@@ -78,6 +79,9 @@ export type WorkspaceControlDeps = {
   pullRequestForBranch(projectId: string, branch: string): Promise<ControlPullRequest | null>;
   callerContext(conversationId: string): Promise<{ taskId: string; provider: string } | null>;
   archiveWorkspace(projectId: string, taskId: string): Promise<void>;
+  renameWorkspace(projectId: string, taskId: string, name: string): Promise<void>;
+  /** The "Preserve capitalization" task setting. */
+  preserveNameCapitalization(): Promise<boolean>;
   createWorkspace(
     input: CreateWorkspaceInput & { provider: string | undefined }
   ): Promise<{ id: string; name: string; branch: string | null }>;
@@ -149,6 +153,37 @@ export class WorkspaceControlService {
     }
     if (archived.length > 0) this.deps.onArchived?.(caller, archived);
     return { archived: archived.map((workspace) => workspace.id), skipped };
+  }
+
+  /**
+   * Names the caller's workspace after its work. Only replaces the generated placeholder
+   * name, unless the user asked for the rename, so names the user chose are kept.
+   */
+  async renameWorkspace(
+    caller: ControlCaller,
+    input: { name: string; userRequested?: boolean }
+  ): Promise<{ renamed: boolean; name: string; reason?: string }> {
+    const taskId = await this.callerTaskId(caller);
+    if (!taskId) throw new Error('Only an agent running in an Emjosh workspace can rename it.');
+    const all = await this.deps.listWorkspaces({ includeArchived: true });
+    const workspace = all.find((candidate) => candidate.id === taskId);
+    if (!workspace) throw new Error('The calling workspace was not found.');
+    if (!input.userRequested && !isRandomTaskName(workspace.name)) {
+      return {
+        renamed: false,
+        name: workspace.name,
+        reason: 'The workspace already has a chosen name; rename it only if the user asks.',
+      };
+    }
+    const siblings = all
+      .filter((other) => other.projectId === workspace.projectId && other.id !== taskId)
+      .map((other) => other.name);
+    const name = ensureUniqueTaskName(input.name, siblings, 6, {
+      preserveCapitalization: await this.deps.preserveNameCapitalization(),
+    });
+    if (!name) throw new Error('The name has no usable characters.');
+    if (name !== workspace.name) await this.deps.renameWorkspace(workspace.projectId, taskId, name);
+    return { renamed: true, name };
   }
 
   async createWorkspace(caller: ControlCaller, input: CreateWorkspaceInput) {

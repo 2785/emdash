@@ -1,6 +1,6 @@
 import { err, ok, toSerializedError, type Result } from '@emdash/shared';
 import { type AccountOAuthError, unknownErrorMessage } from '../account-errors';
-import { ACCOUNT_CONFIG } from '../config';
+import { ACCOUNT_CONFIG, assertAuthServerEnabled } from '../config';
 
 export class AccountOAuthClient {
   constructor(
@@ -50,6 +50,7 @@ export class AccountOAuthClient {
     options: OAuthFlowOptions
   ): Promise<Result<Record<string, unknown>, AccountOAuthError>> {
     try {
+      assertAuthServerEnabled();
       return ok(await this.executeOAuthFlow(options));
     } catch (error) {
       return err({

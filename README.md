@@ -20,8 +20,10 @@ problems to them.
 
 - **Workspace tools for agents.** Every chat agent (and Claude in a terminal) gets an
   `emjosh` MCP server: list projects and workspaces (branch, agent status, PR state),
-  describe its own workspace, create workspaces (a new branch and worktree whose first prompt
-  starts right away), and archive others. Ask things like "archive the workspaces whose PRs
+  describe and rename its own workspace, create workspaces (a new branch and worktree whose
+  first prompt starts right away), and archive others. Agents are told to name their workspace
+  as soon as they know what it's for, and to start workspaces in an initiative for changes that
+  span repositories. Ask things like "archive the workspaces whose PRs
   merged" or "make workspaces in these four repos for the same change".
 - **Initiatives.** Optional groups of workspaces across repositories working towards one goal.
   Group the sidebar by initiative, add tasks from their context menu (*Initiative…*), or let
@@ -66,32 +68,45 @@ problems to them.
   from Emdash releases.
 - **Reload button.** Rebuild, then click *Reload* in the sidebar (or Emjosh → Reload Emjosh)
   to restart on the new build.
-- **No Emdash branding or services.** No Emdash account, feedback, update, or docs surfaces,
-  and local builds carry no telemetry key, so nothing is sent.
+- **No Emdash branding or services.** Emjosh never contacts Emdash's servers: no Emdash
+  account (sessions copied from Emdash aren't sent anywhere), telemetry, feedback, updates, or
+  docs. GitHub connects through the `gh` CLI's login and GitLab through an access token, not
+  Emdash's OAuth apps. Remote (SSH) hosts need a workspace-server download location, which
+  Emdash hosts and Emjosh doesn't yet, so they are off unless you set
+  `EMDASH_WORKSPACE_SERVER_ARTIFACTS_URL`.
 
-## Install (macOS, Apple Silicon)
+## Install
 
-There are no prebuilt releases yet; for now you build it yourself. You need `pnpm` (any
-version; the repo pins its own pnpm and Node) and the Xcode command line tools
-(`xcode-select --install`).
+### macOS (Apple Silicon)
+
+Download `Emjosh-mac-arm64.zip` from the
+[latest release](https://github.com/2785/emjosh/releases/latest), unzip it, and move
+`Emjosh.app` to Applications.
+
+Releases are signed but not notarized by Apple, so the first launch is blocked with "Apple could
+not verify…". Right-click `Emjosh.app` → *Open* → *Open* once (or allow it under System Settings →
+Privacy & Security). After that it opens normally.
+
+### Linux (x64)
+
+Download `Emjosh-linux-x64.AppImage` from the
+[latest release](https://github.com/2785/emjosh/releases/latest), make it executable, and run
+it:
 
 ```bash
-git clone https://github.com/2785/emjosh.git
-cd emjosh
-pnpm install
-pnpm --dir apps/emdash-desktop run install:personal
+chmod +x Emjosh-linux-x64.AppImage
+./Emjosh-linux-x64.AppImage
 ```
 
-That builds `/Applications/Emjosh.app` and opens it.
+Keep it somewhere you can write to (for example `~/Applications`): updates replace that file.
+Some distributions need `libfuse2` to run AppImages. On Ubuntu 24.04 and later, AppArmor
+blocks the Chromium sandbox that Electron apps use; if Emjosh exits with a sandbox error,
+start it with `--no-sandbox`.
 
-Signing: if your keychain has an **Apple Development** certificate (free with any Apple ID:
-Xcode → Settings → Accounts → Manage Certificates → + → Apple Development), builds are signed
-with it and macOS keeps your keychain approvals across rebuilds. Otherwise the first build
-creates a self-signed "Emjosh Local Signing" certificate, and macOS asks for keychain access
-once after each rebuild.
+### Coming from Emdash (macOS)
 
-Coming from Emdash? Copy your projects, tasks, and conversations over once, with Emjosh
-closed:
+Copy your projects, tasks, and conversations over once, with Emjosh closed (needs a clone of
+this repository and `pnpm`):
 
 ```bash
 pnpm --dir apps/emdash-desktop run seed:emjosh
@@ -102,13 +117,53 @@ key and re-encrypts them under its own.
 
 ## Updating
 
+Emjosh checks for new releases every hour and downloads them in the background; the sidebar
+button then reads *Reload · new build*. Click it to restart on the new version.
+
+Only the repository owner can publish releases, and every download must match the checksum
+in the release's manifest. On macOS, updates must also be signed with the same certificate as
+the running app. Linux has no equivalent of app signing, so there the trust rests on the
+GitHub account.
+
+## Building it yourself
+
+You need `pnpm` (any version; the repo pins its own pnpm and Node) and the Xcode command line
+tools (`xcode-select --install`).
+
 ```bash
-git pull
+git clone https://github.com/2785/emjosh.git
+cd emjosh
+pnpm install
 pnpm --dir apps/emdash-desktop run install:personal
 ```
 
-If Emjosh is running, the new build is staged and the sidebar button turns into
-*Reload · new build*. Click it to restart on the new build.
+That builds `/Applications/Emjosh.app` and opens it, or, if Emjosh is running, stages the build
+for its Reload button.
+
+Signing: if your keychain has an **Apple Development** certificate (free with any Apple ID:
+Xcode → Settings → Accounts → Manage Certificates → + → Apple Development), builds are signed
+with it and macOS keeps your keychain approvals across rebuilds. Otherwise the first build
+creates a self-signed "Emjosh Local Signing" certificate, and macOS asks for keychain access
+once after each rebuild. Self-built copies still receive release updates only if they're signed
+with the release certificate.
+
+## Releasing
+
+From a clean checkout of merged `main`, signed in to `gh` as the repository owner:
+
+```bash
+pnpm --dir apps/emdash-desktop run release          # next patch version
+pnpm --dir apps/emdash-desktop run release minor    # or major, or an explicit X.Y.Z
+```
+
+It builds and signs the macOS app, builds the Linux x64 AppImage in a Docker container, then
+publishes both and an update manifest as a GitHub release. Release tags can't be moved or
+deleted.
+
+The Linux build needs Docker; on Apple Silicon, create a Colima profile once
+(`colima start -p emjosh-linux --vm-type vz`) and start it before releasing.
+`EMJOSH_SKIP_LINUX=1` releases macOS only. To build just the AppImage:
+`pnpm --dir apps/emdash-desktop run package:personal:linux`.
 
 ## Development
 

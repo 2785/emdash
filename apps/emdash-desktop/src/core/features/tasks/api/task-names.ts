@@ -1,3 +1,5 @@
+import { adjectives, nouns, verbs } from 'human-id';
+
 export const MAX_TASK_NAME_LENGTH = 64;
 
 type TaskNameTransformOptions = {
@@ -48,3 +50,16 @@ export const ensureUniqueTaskName = (
   const fallback = normalizeTaskName(`${baseName}-${Date.now().toString(36)}`, options);
   return fallback || base;
 };
+
+const lower = (words: string[]) => new Set(words.map((word) => word.toLowerCase()));
+const ADJECTIVES = lower(adjectives);
+const NOUNS = lower(nouns);
+const VERBS = lower(verbs);
+
+/** True for Emdash's random placeholder names ("wicked-items-smile"). */
+export function isRandomTaskName(name: string): boolean {
+  const [adjective, noun, verb, ...rest] = name.toLowerCase().split('-');
+  return (
+    rest.length === 0 && ADJECTIVES.has(adjective) && NOUNS.has(noun ?? '') && VERBS.has(verb ?? '')
+  );
+}

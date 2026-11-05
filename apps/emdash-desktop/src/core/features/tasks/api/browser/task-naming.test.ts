@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { autoTaskName, isRandomTaskName } from './task-naming';
+import { isRandomTaskName } from '@core/features/tasks/api/task-names';
+import { autoTaskName } from './task-naming';
 
 vi.mock('@core/primitives/mementos/browser', () => ({ getMementoClient: vi.fn() }));
 

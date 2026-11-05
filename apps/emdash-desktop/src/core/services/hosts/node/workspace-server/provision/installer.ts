@@ -235,6 +235,13 @@ sh "$install_script" --base-url ${quotedBaseUrl} --version ${quotedVersion}`;
 }
 
 function validateInstallBaseUrl(value: string): string {
+  if (!value.trim()) {
+    throw new WorkspaceServerInstallError(
+      'artifact-download-failed',
+      'No workspace-server download location is configured, so remote hosts are unavailable. ' +
+        'Set EMDASH_WORKSPACE_SERVER_ARTIFACTS_URL to enable them.'
+    );
+  }
   let url: URL;
   try {
     url = new URL(value);

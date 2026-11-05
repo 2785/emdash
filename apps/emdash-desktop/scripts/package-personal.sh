@@ -3,6 +3,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Emjosh's version: given by scripts/release.sh, else the latest release tag this checkout has,
+# else 0.0.1, older than any release (0.0.0 would fall back to upstream's version).
+EMJOSH_VERSION="${EMJOSH_VERSION:-$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null | sed 's/^v//')}"
+export EMJOSH_VERSION="${EMJOSH_VERSION:-0.0.1}"
+
 node ../../tooling/scripts/ensure-packages-built.mjs
 # out/ is shared with other build flows (e.g. Nx), so start clean: stale chunks or a
 # non-personal main entry would otherwise end up in the package.

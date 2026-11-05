@@ -8,7 +8,7 @@ import {
   MAX_TASK_NAME_LENGTH,
   normalizeTaskName,
   taskNameCollisionKey,
-} from '@core/features/tasks/api/browser/taskNames';
+} from '@core/features/tasks/api/task-names';
 import { useModalController } from '@core/manifests/browser/modal-api';
 import { ConfirmButton } from '@core/primitives/keybindings/browser/confirm-button';
 import { defineModal } from '@core/primitives/modals/react';

@@ -43,6 +43,7 @@ const PersonalReloadButton = observer(function PersonalReloadButton({
   const { staged } = update.personalBuild;
   const title = staged
     ? `Quit and reopen on the new build (${[
+        staged.version && `v${staged.version}`,
         staged.commit,
         `built ${new Date(staged.builtAt).toLocaleTimeString()}`,
       ]
