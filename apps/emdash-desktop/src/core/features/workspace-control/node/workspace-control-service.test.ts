@@ -115,7 +115,7 @@ describe('WorkspaceControlService', () => {
     expect(deps.renameWorkspace).toHaveBeenLastCalledWith('p1', 'self', 'fix-login');
   });
 
-  it('keeps a chosen name unless the user asked for the rename', async () => {
+  it('keeps a chosen name unless overridden', async () => {
     const { service, deps } = setup([workspace({ id: 'self', name: 'krak-1029-sftp' })]);
     const caller = { conversationId: 'conv-self' };
 
@@ -124,7 +124,7 @@ describe('WorkspaceControlService', () => {
     ).resolves.toMatchObject({ renamed: false, name: 'krak-1029-sftp' });
     expect(deps.renameWorkspace).not.toHaveBeenCalled();
 
-    await service.renameWorkspace(caller, { name: 'something else', userRequested: true });
+    await service.renameWorkspace(caller, { name: 'something else', override: true });
     expect(deps.renameWorkspace).toHaveBeenCalledWith('p1', 'self', 'something-else');
   });
 

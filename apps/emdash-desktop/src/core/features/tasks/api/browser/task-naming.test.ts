@@ -1,8 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { isRandomTaskName } from '@core/features/tasks/api/task-names';
 import { autoTaskName } from './task-naming';
-
-vi.mock('@core/primitives/mementos/browser', () => ({ getMementoClient: vi.fn() }));
 
 describe('isRandomTaskName', () => {
   it("recognises Emdash's random placeholder names", () => {

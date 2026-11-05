@@ -157,22 +157,24 @@ export class WorkspaceControlService {
 
   /**
    * Names the caller's workspace after its work. Only replaces the generated placeholder
-   * name, unless the user asked for the rename, so names the user chose are kept.
+   * name, unless `override` (the user asked, or the work pivoted), so names stick.
    */
   async renameWorkspace(
     caller: ControlCaller,
-    input: { name: string; userRequested?: boolean }
+    input: { name: string; override?: boolean }
   ): Promise<{ renamed: boolean; name: string; reason?: string }> {
     const taskId = await this.callerTaskId(caller);
     if (!taskId) throw new Error('Only an agent running in an Emjosh workspace can rename it.');
     const all = await this.deps.listWorkspaces({ includeArchived: true });
     const workspace = all.find((candidate) => candidate.id === taskId);
     if (!workspace) throw new Error('The calling workspace was not found.');
-    if (!input.userRequested && !isRandomTaskName(workspace.name)) {
+    if (!input.override && !isRandomTaskName(workspace.name)) {
       return {
         renamed: false,
         name: workspace.name,
-        reason: 'The workspace already has a chosen name; rename it only if the user asks.',
+        reason:
+          'The workspace already has a name. Keep it for follow-ups; override only if the user ' +
+          'asks or the work pivoted to something unrelated.',
       };
     }
     const siblings = all
