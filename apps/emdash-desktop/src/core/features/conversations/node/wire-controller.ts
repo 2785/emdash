@@ -79,6 +79,36 @@ export type CreateConversationsWireControllerOptions = Readonly<{
   hostIsReachable: (hostRef: SerializedHostRef) => boolean;
 }>;
 
+/**
+ * Starts the agent session of a chat conversation without a renderer, as the chat panel does
+ * when it opens; queued initial prompts run once the session is up.
+ */
+export function startAcpConversationSession(
+  options: Pick<
+    CreateConversationsWireControllerOptions,
+    | 'db'
+    | 'workspaceIdentity'
+    | 'getProviderEnv'
+    | 'sessionLaunchContexts'
+    | 'projects'
+    | 'runtimes'
+  >,
+  conversationId: string
+) {
+  const target = resolveConversationRuntimeTarget(
+    conversationId,
+    options.workspaceIdentity,
+    options.db,
+    options.getProviderEnv,
+    options.sessionLaunchContexts
+  );
+  return withConversationRuntime(options, target, (client, resolved) => {
+    const input = resolved.acpInput;
+    if (!input) throw missingAcpInputError(resolved);
+    return client.acp.startSession({ ...input, mode: 'fresh' }, { timeoutMs: 0 });
+  });
+}
+
 export function createConversationsWireController(
   options: CreateConversationsWireControllerOptions
 ): Controller {

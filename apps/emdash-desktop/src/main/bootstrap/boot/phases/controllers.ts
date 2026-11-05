@@ -1,11 +1,16 @@
 import type { Scope } from '@emdash/shared/concurrency';
 import type { Controller } from '@emdash/wire/rpc';
+import { app } from 'electron';
 import {
   desktopNodeControllers,
   type DesktopControllerContext,
 } from '@core/manifests/node/controllers';
+import { startWorkspaceControl } from '@core/manifests/node/workspace-control';
 import { desktopDomainContracts } from '@core/manifests/shared/domain-contracts';
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
+import { controlEndpointFile } from '@main/core/workspace-control/endpoint-file';
 import type { DesktopRuntimes } from '@main/gateway/desktop-runtimes';
+import { log } from '@main/lib/logger';
 import { appScope } from '../../core/app-scope';
 import { createDesktopWireOptions } from '../wiring';
 import type { DatabaseBundle } from './database';
@@ -42,6 +47,30 @@ export async function bootControllers(
         return [domain, controller] as const;
       })
     );
+    if (IS_PERSONAL) {
+      // Agents manage workspaces through this endpoint; a failure only disables that.
+      try {
+        const endpoint = await startWorkspaceControl(
+          {
+            ...options,
+            hosts: infrastructure.hosts,
+            runtimes: runtimes.broker,
+            scope,
+            ssh: infrastructure.ssh,
+          },
+          {
+            pullRequests: runtimes.clients.pullRequests,
+            pullRequestsRegistration: services.pullRequestsRegistration,
+            endpointFile: controlEndpointFile(),
+            version: app.getVersion(),
+            logger: log,
+          }
+        );
+        scope.add(() => endpoint.close());
+      } catch (error) {
+        log.warn('Workspace control endpoint did not start', { error });
+      }
+    }
     return { controllers: Object.fromEntries(entries), scope };
   } catch (error) {
     await scope.dispose(error);

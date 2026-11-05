@@ -122,6 +122,13 @@ export class PullRequestsRegistration implements Disposable {
     );
   }
 
+  /** Repository URLs whose pull requests belong to the project. */
+  async repositoryUrlsForProject(projectId: string): Promise<string[]> {
+    return (
+      this.projectRepositoryUrls.get(projectId) ?? (await this.resolveRepositoryUrls(projectId))
+    );
+  }
+
   async onProjectOpened(projectId: string): Promise<void> {
     await this.refreshProject(projectId);
     this.subscribeToRepository(projectId);

@@ -1,8 +1,10 @@
+import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import type { Logger } from '@emdash/shared/logger';
 import type { PluginRegistry } from '@emdash/shared/plugins';
 import { defineWireComponent, requireContract } from '@emdash/wire/worker';
 import { z } from 'zod';
+import type { McpServerRegistration } from '#primitives/mcp/api';
 import { acpApiContract } from '#runtimes/acp/api';
 import { createAcpController } from '#runtimes/acp/node/api/controller';
 import { ChildAcpProcessHost } from '#runtimes/acp/node/node/child-process-host';
@@ -27,6 +29,11 @@ import { userShellEnvContract } from '#services/shell-env/api';
 
 export const acpComponentConfigSchema = z.object({
   intentsFilePath: z.string().min(1).optional(),
+  /**
+   * JSON file ({ url, token }) of the host app's control MCP endpoint. When present, every
+   * session gets an `emjosh` MCP server identifying its conversation.
+   */
+  controlEndpointFile: z.string().min(1).optional(),
   lifecycle: z
     .object({
       session: idlePolicyConfigSchema.optional(),
@@ -92,6 +99,9 @@ export function createAcpComponent(options: CreateAcpComponentOptions) {
           client: dependencies.conversations,
           logger: runtimeLogger,
         }),
+        sessionMcpServers: config.controlEndpointFile
+          ? (conversationId) => readControlMcpServer(config.controlEndpointFile!, conversationId)
+          : undefined,
         lifecycle: config.lifecycle,
         logger: runtimeLogger,
       } satisfies AcpRuntimeDeps);
@@ -104,4 +114,29 @@ export function createAcpComponent(options: CreateAcpComponentOptions) {
       });
     },
   });
+}
+
+/** The host's control endpoint as an MCP server for one conversation; none if not running. */
+async function readControlMcpServer(
+  endpointFile: string,
+  conversationId: string
+): Promise<McpServerRegistration[]> {
+  let info: { url?: unknown; token?: unknown };
+  try {
+    info = JSON.parse(await readFile(endpointFile, 'utf8'));
+  } catch {
+    return [];
+  }
+  if (typeof info.url !== 'string' || typeof info.token !== 'string') return [];
+  return [
+    {
+      name: 'emjosh',
+      transport: 'http',
+      url: info.url,
+      headers: {
+        Authorization: `Bearer ${info.token}`,
+        'x-emjosh-conversation': conversationId,
+      },
+    },
+  ];
 }
