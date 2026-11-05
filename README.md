@@ -49,11 +49,13 @@ problems to them.
 ### Sidebar and workspaces
 
 - **Group by project, initiative, or nothing.** The sort menu's *Group by* lists every task in
-  one cross-repo list (labelled with its project), optionally split by initiative.
+  one cross-repo list (labelled with its project), optionally split by initiative. Without
+  project rows, the sidebar header's **+** opens a searchable project picker for a new task.
 - **"Last used" means real activity.** Tasks move up when a prompt is sent or a turn finishes
   or needs you, not when you click into them.
-- **Workspace names follow the work.** A workspace with an automatic name takes its first
-  conversation's title once the agent sets one; names you chose are never touched.
+- **Workspace names follow the work.** Agents name their workspace as soon as they know what
+  it's for, and a workspace that still has an automatic name takes its first conversation's
+  title; names you chose are never touched.
 - **More reliable agent status.** Fewer conversations stuck spinning or wrongly flagged as
   waiting for you (after reopening a chat, a restart, or an interrupted turn).
 
@@ -63,11 +65,13 @@ problems to them.
   sidebar (darker in dark mode, brighter in light mode) so the window is easy to spot.
 - **Remembered link choice.** "Open link?" can remember in-app vs. default browser
   (Settings → Interface → *Open links in*).
-- **Its own app.** `Emjosh.app` installs next to Emdash, with its own data
-  (`~/Library/Application Support/emjosh`), keychain entry, and icon, and never auto-updates
-  from Emdash releases.
-- **Reload button.** Rebuild, then click *Reload* in the sidebar (or Emjosh → Reload Emjosh)
-  to restart on the new build.
+- **Its own app, on macOS and Linux.** `Emjosh.app` (or the Linux AppImage) installs next to
+  Emdash, with its own data (`~/Library/Application Support/emjosh`), keychain entry, and
+  icon. It updates from [Emjosh releases](https://github.com/2785/emjosh/releases), never from
+  Emdash's.
+- **Reload button.** When a new release has been downloaded, or you've built one yourself,
+  the sidebar shows *Reload · new build* (also Emjosh → Reload Emjosh); click it to restart on
+  it.
 - **No Emdash branding or services.** Emjosh never contacts Emdash's servers: no Emdash
   account (sessions copied from Emdash aren't sent anywhere), telemetry, feedback, updates, or
   docs. GitHub connects through the `gh` CLI's login and GitLab through an access token, not
