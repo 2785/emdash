@@ -9,7 +9,7 @@ import { IS_PERSONAL, PRODUCT_NAME } from '@core/primitives/app-identity/api/app
 import { log } from '@main/lib/logger';
 
 /** Where `pnpm run install:personal` stages builds; keep in sync with scripts/install-personal.sh. */
-export const PERSONAL_STAGE_DIR = join(homedir(), 'Library', 'Caches', 'emdash-josh', 'staged');
+export const PERSONAL_STAGE_DIR = join(homedir(), 'Library', 'Caches', 'emjosh', 'staged');
 const POLL_INTERVAL_MS = 3_000;
 const EXIT_WAIT_SECONDS = 120;
 
@@ -76,7 +76,7 @@ type PersonalReloadDeps = {
   enabled: boolean;
   stageDir: string;
   productName: string;
-  /** Path of the running app bundle (`…/Emdash Josh.app`). */
+  /** Path of the running app bundle (`…/Emjosh.app`). */
   bundlePath: string;
   pid: number;
   readText(path: string): Promise<string>;
@@ -142,7 +142,7 @@ export class PersonalReloadService {
 }
 
 function bundlePathFromExecPath(execPath: string): string {
-  // …/Emdash Josh.app/Contents/MacOS/Emdash Josh → …/Emdash Josh.app
+  // …/Emjosh.app/Contents/MacOS/Emjosh → …/Emjosh.app
   return dirname(dirname(dirname(execPath)));
 }
 
@@ -159,7 +159,7 @@ export function createPersonalReloadService(electron: {
     readText: (path) => readFile(path, 'utf8'),
     spawnDetached: (args) => {
       const jobDir = dirname(PERSONAL_STAGE_DIR);
-      const label = `com.emdash.personal.reload.${Date.now()}`;
+      const label = `com.emjosh.reload.${Date.now()}`;
       const plistPath = join(jobDir, `${label}.plist`);
       mkdirSync(jobDir, { recursive: true });
       writeFileSync(

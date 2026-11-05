@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# Builds the personal flavor and stages it for Emdash Josh's Reload button. When Emdash Josh
-# isn't running, installs it into /Applications right away instead.
+# Builds Emjosh and stages it for its Reload button. When Emjosh isn't running, installs it
+# into /Applications right away instead.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP_NAME='Emdash Josh'
+APP_NAME='Emjosh'
 APP="/Applications/$APP_NAME.app"
 # Keep in sync with PERSONAL_STAGE_DIR in src/main/host/updates/personal-reload.ts.
-STAGE="$HOME/Library/Caches/emdash-josh/staged"
+STAGE="$HOME/Library/Caches/emjosh/staged"
 PERSONAL_BIN="$APP/Contents/MacOS/$APP_NAME"
-STABLE_BIN='/Applications/Emdash.app/Contents/MacOS/Emdash'
 
 # Shells spawned by Electron apps can inherit ELECTRON_RUN_AS_NODE, which would start the app
 # as plain Node.
@@ -26,7 +25,6 @@ pnpm run package:personal
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 ditto "release/mac-arm64/$APP_NAME.app" "$STAGE/$APP_NAME.app"
-codesign --verify --deep --strict "$STAGE/$APP_NAME.app"
 commit="$(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . || echo '-dirty')"
 printf '{"builtAt":"%s","commit":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$commit" >"$STAGE/build.json"
 
@@ -39,9 +37,4 @@ rm -rf "$APP"
 ditto "$STAGE/$APP_NAME.app" "$APP"
 rm -rf "$STAGE"
 echo "Installed $commit to $APP"
-# Both apps share one data dir and single-instance lock, so only one can run at a time.
-if is_running "$STABLE_BIN"; then
-  echo "Emdash is running; quit it, then open $APP_NAME."
-else
-  open "$APP"
-fi
+open "$APP"

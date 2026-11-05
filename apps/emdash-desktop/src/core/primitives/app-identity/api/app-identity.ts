@@ -4,7 +4,8 @@ export type AppIdentity = ReturnType<typeof resolveAppIdentity>;
 
 export function resolveAppIdentity({ dev, build }: { dev: boolean; build: string | undefined }) {
   const isCanary = build === 'canary';
-  // Locally built fork: installs next to the official app, shares its data, never auto-updates.
+  // Emjosh, the locally built fork: installs next to the official app with its own data and
+  // never auto-updates.
   const isPersonal = build === 'personal';
   const pick = <T>(values: { stable: T; canary: T; personal: T }): T =>
     isPersonal ? values.personal : isCanary ? values.canary : values.stable;
@@ -12,33 +13,33 @@ export function resolveAppIdentity({ dev, build }: { dev: boolean; build: string
   const productName = pick({
     stable: 'Emdash',
     canary: 'Emdash Canary',
-    personal: 'Emdash Josh',
+    personal: 'Emjosh',
   });
   const appNameLower = pick({
     stable: 'emdash',
     canary: 'emdash-canary',
-    personal: 'emdash-josh',
+    personal: 'emjosh',
   });
   return {
     APP_ID: pick({
       stable: 'com.emdash.stable',
       canary: 'com.emdash.canary',
-      personal: 'com.emdash.personal',
+      personal: 'com.emjosh.app',
     }),
     PRODUCT_NAME: productName,
     APP_NAME_LOWER: appNameLower,
     LINUX_DESKTOP_ID: pick({
       stable: 'Emdash',
       canary: 'emdash-canary',
-      personal: 'emdash-josh',
+      personal: 'emjosh',
     }),
     USER_DATA_DIR_NAME: dev
       ? 'emdash-dev'
-      : pick({ stable: 'emdash', canary: 'emdash-canary', personal: 'emdash' }),
+      : pick({ stable: 'emdash', canary: 'emdash-canary', personal: 'emjosh' }),
     /**
      * Name passed to `app.setName`. Electron derives the safeStorage keychain entry
-     * ("<name> Safe Storage") from it, so the personal build uses the stable name to decrypt
-     * secrets written by the official app in the shared data dir.
+     * ("<name> Safe Storage") from it, so Emjosh uses the stable name to decrypt secrets in data
+     * seeded from the official app (scripts/seed-emjosh-data.sh).
      */
     RUNTIME_APP_NAME: isPersonal ? 'Emdash' : productName,
     UPDATE_CHANNEL: isCanary ? 'v1-canary' : 'v1-stable',

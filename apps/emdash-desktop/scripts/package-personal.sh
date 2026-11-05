@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds and packages the personal flavor (Emdash Josh) into release/mac-arm64.
+# Builds and packages the personal flavor (Emjosh) into release/mac-arm64.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -19,3 +19,8 @@ if [ -n "$missing" ]; then
 fi
 
 pnpm exec electron-builder --mac --publish never --config electron-builder.personal.config.ts
+
+# electron-builder only signs with trusted identities, so sign with the local identity here.
+identity="$(bash scripts/setup-emjosh-signing.sh)"
+codesign --force --deep --sign "$identity" release/mac-arm64/Emjosh.app
+codesign --verify --deep --strict release/mac-arm64/Emjosh.app

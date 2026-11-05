@@ -7,7 +7,7 @@ import {
   PRODUCT_NAME,
 } from './src/core/primitives/app-identity/api/app-identity.personal.ts';
 
-// Local-only build of the fork: unpublished, ad-hoc signed, unpacked .app.
+// Local-only build of the fork (Emjosh): unpublished, unpacked .app, signed after packaging.
 const config: Configuration = {
   ...base,
   appId: APP_ID,
@@ -18,8 +18,8 @@ const config: Configuration = {
   publish: null,
   mac: {
     ...base.mac,
-    identity: '-',
-    // Ad-hoc signatures can't satisfy hardened runtime library validation.
+    // Signed afterwards with the local identity (scripts/package-personal.sh).
+    identity: null,
     hardenedRuntime: false,
     target: [{ target: 'dir', arch: ['arm64'] }],
     icon: 'src/assets/images/emdash/emdash-canary.icns',

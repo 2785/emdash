@@ -27,8 +27,8 @@ function makeService(overrides: Partial<ConstructorParameters<typeof PersonalRel
   const deps = {
     enabled: true,
     stageDir: '/stage',
-    productName: 'Emdash Josh',
-    bundlePath: '/Applications/Emdash Josh.app',
+    productName: 'Emjosh',
+    bundlePath: '/Applications/Emjosh.app',
     pid: 4242,
     readText: vi.fn(async (): Promise<string> => {
       throw new Error('ENOENT');
@@ -73,8 +73,8 @@ describe('PersonalReloadService', () => {
 
     expect(deps.spawnDetached).toHaveBeenCalledWith([
       '4242',
-      '/Applications/Emdash Josh.app',
-      '/stage/Emdash Josh.app',
+      '/Applications/Emjosh.app',
+      '/stage/Emjosh.app',
       '120',
     ]);
     expect(deps.quit).toHaveBeenCalledTimes(1);
@@ -90,7 +90,7 @@ describe('PersonalReloadService', () => {
 
     expect(deps.spawnDetached).toHaveBeenCalledWith([
       '4242',
-      '/Applications/Emdash Josh.app',
+      '/Applications/Emjosh.app',
       '',
       '120',
     ]);
@@ -157,8 +157,8 @@ describe.runIf(process.platform === 'darwin')('reload helper script', () => {
 
   function setup(stagedSigned = true) {
     root = mkdtempSync(join(tmpdir(), 'personal-reload-'));
-    const target = join(root, 'Applications', 'Emdash Josh.app');
-    const staged = join(root, 'stage', 'staged', 'Emdash Josh.app');
+    const target = join(root, 'Applications', 'Emjosh.app');
+    const staged = join(root, 'stage', 'staged', 'Emjosh.app');
     makeApp(target, 'old');
     makeApp(staged, 'new', stagedSigned);
     return { target, staged };
@@ -217,7 +217,7 @@ describe.runIf(process.platform === 'darwin')('reload launchd job', () => {
       writeFileSync(
         plist,
         buildLaunchdJobPlist({
-          label: 'com.emdash.personal.reload.test',
+          label: 'com.emjosh.reload.test',
           programArguments: ['/bin/bash', '-c', script, 'reload', '1', '/A & B.app', '', '120'],
           logPath: join(dir, 'reload.log'),
         })

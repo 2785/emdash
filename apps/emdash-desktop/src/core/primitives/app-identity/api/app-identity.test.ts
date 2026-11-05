@@ -13,12 +13,12 @@ describe('resolveAppIdentity', () => {
     });
   });
 
-  it('installs the personal build separately but shares data and keychain with stable', () => {
+  it('installs Emjosh separately with its own data, reading the stable keychain entry', () => {
     expect(resolveAppIdentity({ dev: false, build: 'personal' })).toMatchObject({
-      APP_ID: 'com.emdash.personal',
-      PRODUCT_NAME: 'Emdash Josh',
+      APP_ID: 'com.emjosh.app',
+      PRODUCT_NAME: 'Emjosh',
       RUNTIME_APP_NAME: 'Emdash',
-      USER_DATA_DIR_NAME: 'emdash',
+      USER_DATA_DIR_NAME: 'emjosh',
       IS_PERSONAL: true,
       IS_CANARY: false,
     });
