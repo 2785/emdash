@@ -40,9 +40,9 @@ problems to them.
 ### Chat
 
 - **Steer the agent mid-turn.** Settings → General → *Messages sent while agent is working*:
-  *Queue* (Emdash's behavior) or *Steer*, which hands your message (merged with anything
-  queued) to the running agent right away, so it adjusts course without stopping. Agents that
-  can't take messages mid-turn stop and run it next.
+  *Steer* (the default) hands your message (merged with anything queued) to the running agent
+  right away, so it adjusts course without stopping; *Queue* (Emdash's behavior) waits for the
+  turn to end. Agents that can't take messages mid-turn stop and run it next.
 - **Inline attachment references.** Pasted or dropped images get an `[Image 1]` pill where
   your cursor is, and the agent sees which image is which; long pasted text collapses into a
   `[Snippet 1]` pill that still sends the full text in place.

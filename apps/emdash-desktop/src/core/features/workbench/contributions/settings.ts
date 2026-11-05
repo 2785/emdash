@@ -60,7 +60,7 @@ export const interfaceSettingsContribution = defineSettingsContribution<
     showTrayIcon: true,
     taskHoverAction: 'delete',
     autoRightSidebarBehavior: false,
-    showLeftSidebarLineChanges: true,
+    showLeftSidebarLineChanges: false,
     showLeftSidebarPrStatus: true,
     showLeftSidebarTimestamps: true,
     hideContextBar: false,

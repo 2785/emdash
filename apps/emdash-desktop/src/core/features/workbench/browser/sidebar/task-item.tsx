@@ -95,7 +95,7 @@ export const SidebarTaskItem = observer(function SidebarTaskItem({
 
   const workspaceStore = getTaskWorkspace(projectId, taskId);
   const git = getTaskGitCheckoutStore(projectId, taskId);
-  const showLineChanges = interfaceSettings?.showLeftSidebarLineChanges ?? true;
+  const showLineChanges = interfaceSettings?.showLeftSidebarLineChanges ?? false;
   const showPrStatus = interfaceSettings?.showLeftSidebarPrStatus ?? true;
   const showTimestamps = interfaceSettings?.showLeftSidebarTimestamps ?? true;
   const branchName = git?.branchName ?? undefined;
