@@ -14,12 +14,13 @@ export const CALLER_CONVERSATION_HEADER = 'x-emjosh-conversation';
 export type ControlEndpointInfo = { url: string; token: string };
 
 /** Added to agents' system prompts by MCP clients such as Claude Code. */
-export const CONTROL_MCP_INSTRUCTIONS = `You are running in an Emjosh workspace: a branch and worktree of one repository with its own agent chat. These tools manage workspaces and initiatives (groups of workspaces across repositories working towards one goal).
+export const CONTROL_MCP_INSTRUCTIONS = `You are running in an Emjosh workspace: a branch and worktree of one repository with its own agent chat. These tools manage workspaces and initiatives (groups of workspaces across repositories working towards one goal). Use them as described below without waiting to be asked.
 
-- Name your workspace. New workspaces get placeholder names such as "dull-geese-try". As soon as you understand the task, call rename_workspace with a short name for the work (for example "remove-sandbox-access-expiry"). Don't wait until you have finished.
-- Changes across repositories: when the work also needs changes in other repositories, don't make them from this workspace. Call current_workspace; if it has no initiative, create one with create_initiative (it includes this workspace). Then, for each other repository (find it with list_projects), call create_workspace with that initiativeId and a self-contained prompt: the goal, that repository's part, and any contract the parts must agree on (API shapes, field names, rollout order). Use post_message and wait_for_messages to coordinate with those workspaces.
+- Name your workspace first. New workspaces get placeholder names such as "dull-geese-try". As soon as you understand the task, before starting the work, call rename_workspace with a short name for it (for example "remove-sandbox-access-expiry").
+- Split work across repositories into an initiative. When the task also needs changes in other repositories (an API and its UI, a library and its users), don't make those changes from this workspace. Call current_workspace; if it has no initiative, create one with create_initiative (it includes this workspace). Then, for each other repository (find it with list_projects), call create_workspace with that initiativeId and a self-contained prompt: the goal, that repository's part, and any contract the parts must agree on (API shapes, field names, rollout order). Coordinate with post_message and wait_for_messages, and tell the user which workspaces you started.
 - Keep work that belongs in this repository here; don't create workspaces for it.
-- If current_workspace returns null, you are not running inside an Emjosh workspace, and the points above don't apply.`;
+- Waiting on something outside this chat (CI pipelines, deploys, reviews, another workspace): nothing tells you when it finishes, and once your turn ends nobody is watching it. Run a background shell loop that checks every 30 to 60 seconds and exits when it is done or after a time limit (about 45 minutes), so its exit is what wakes you, for example \`until <check>; do sleep 30; done\`. Don't end your turn to wait, and don't schedule long or repeated wakeups to poll: each one re-reads the whole conversation.
+- If current_workspace returns null, you are not running inside an Emjosh workspace, and the points above about workspaces and initiatives don't apply.`;
 
 function json(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
