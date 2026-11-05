@@ -12,7 +12,7 @@
 
 import { cx } from '@styles/utilities/cx';
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
-import { AtSign, Braces, CircleDot, File, TextQuote, X } from 'lucide-react';
+import { AtSign, Braces, CircleDot, File, X } from 'lucide-react';
 import React from 'react';
 import { basename, fileIconClass } from './mention-pill-helpers';
 import type { MentionKind, RenderMentionIcon } from './types';
@@ -47,7 +47,6 @@ function PillIcon({
     const cls = fileIconClass(label);
     if (cls) return <i className={cls} style={{ fontSize: '12px', lineHeight: 1 }} />;
   }
-  if (id.startsWith('snippet:')) return <TextQuote style={ICON_SIZE_SM} />;
   return KIND_ICONS[kind] ?? KIND_ICONS.custom;
 }
 
@@ -64,6 +63,22 @@ export function MentionPill({
   const name = rawName ?? (basename(label) || label);
   const kind = ((node.attrs.kind as string | null) ?? 'custom') as MentionKind;
   const pending = node.attrs.pending === true;
+
+  if (node.attrs.compact === true) {
+    return (
+      <NodeViewWrapper as="span" className={cx('mention-pill-wrapper', styles.pillWrapper)}>
+        <span
+          contentEditable={false}
+          className={cx(styles.compactPill, pending && styles.pillPending)}
+          data-mention-id={id}
+          data-mention-kind={kind}
+          data-mention-pending={pending || undefined}
+        >
+          {name}
+        </span>
+      </NodeViewWrapper>
+    );
+  }
 
   return (
     <NodeViewWrapper as="span" className={cx('mention-pill-wrapper', styles.pillWrapper)}>

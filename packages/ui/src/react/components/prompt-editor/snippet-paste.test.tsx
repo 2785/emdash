@@ -54,6 +54,10 @@ describe('snippet pastes', () => {
     );
     expect(pills.join(' ')).toContain('Snippet 1');
     expect(pills.join(' ')).toContain('Snippet 2');
+    // Compact boxes: just the name, no icon or remove button.
+    expect(result.container.querySelectorAll('[data-mention-id^="snippet:"] button')).toHaveLength(
+      0
+    );
     const sent = serializeDoc(editor.state.doc);
     expect(sent.startsWith('see [Snippet 1]\n```\nline 1\n')).toBe(true);
     expect(sent).toContain('[Snippet 2]\n```\nline 1\n');

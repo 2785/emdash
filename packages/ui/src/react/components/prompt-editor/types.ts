@@ -41,6 +41,8 @@ export interface MentionItem {
   insertText?: string;
   /** Host-controlled resolving state for mention pills. Not included in plain-text serialization. */
   pending?: boolean;
+  /** Renders as a small text-height box without an icon, for references like `[Image 1]`. */
+  compact?: boolean;
 }
 
 export type RenderMentionIcon = (attrs: {

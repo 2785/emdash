@@ -288,6 +288,7 @@ function mentionNode(item: MentionItem): JSONContent {
       kind: item.kind,
       pending: item.pending ?? false,
       serializedText: item.serializedText ?? null,
+      compact: item.compact ?? false,
     },
   };
 }
@@ -363,6 +364,7 @@ export function snippetMention(text: string, index: number): MentionItem {
     label,
     name: label,
     kind: 'custom',
+    compact: true,
     serializedText: `[${label}]\n${fence}\n${text.replace(/\n+$/, '')}\n${fence}\n`,
   };
 }
@@ -373,13 +375,14 @@ function mentionInsertContent(item: MentionItem): JSONContent[] {
 
 function mentionSignature(mentions: PromptEditorProps['mentions']): string {
   return JSON.stringify(
-    mentions?.map(({ id, kind, label, name, pending, serializedText }) => ({
+    mentions?.map(({ id, kind, label, name, pending, serializedText, compact }) => ({
       id,
       kind,
       label,
       name,
       pending,
       serializedText,
+      compact,
     })) ?? []
   );
 }
