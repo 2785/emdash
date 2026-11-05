@@ -112,6 +112,7 @@ describe('SidebarStore project ordering', () => {
       projectOrder: [],
       taskOrderByProject: {},
       taskSortBy: 'created-at',
+      groupBy: 'project',
     });
     const store = new SidebarStore(manager);
     store.attachMemento(handle);
@@ -138,6 +139,7 @@ describe('SidebarStore project ordering', () => {
       projectOrder: ['project-1'],
       taskOrderByProject: {},
       taskSortBy: 'updated-at',
+      groupBy: 'project',
     });
 
     store.attachMemento(handle);
@@ -156,6 +158,7 @@ describe('SidebarStore project ordering', () => {
       projectOrder: [],
       taskOrderByProject: {},
       taskSortBy: 'created-at',
+      groupBy: 'project',
     });
     store.attachMemento(handle);
 
