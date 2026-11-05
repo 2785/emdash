@@ -87,6 +87,8 @@ function readEmdashKeychainPassword(): Promise<string | null> {
 
 /** Runs the migration once per data dir; later boots skip it via a marker file. */
 export async function migrateEmjoshSecretsOnce(db: AppDb): Promise<void> {
+  // Seeding from Emdash, and so its keychain key, only exists on macOS.
+  if (process.platform !== 'darwin') return;
   const marker = join(app.getPath('userData'), MARKER_FILE);
   if (existsSync(marker) || !safeStorage.isEncryptionAvailable()) return;
 

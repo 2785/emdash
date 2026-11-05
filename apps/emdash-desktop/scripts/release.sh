@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Builds Emjosh from merged main and publishes it as a GitHub release of 2785/emjosh, where
-# installed copies pick it up (src/main/host/updates/personal-update.ts).
+# Builds Emjosh (macOS arm64, and Linux x64 in a container) from merged main and publishes it
+# as a GitHub release of 2785/emjosh, where installed copies pick it up
+# (src/main/host/updates/personal-update.ts).
 #
 #   pnpm run release            # next patch version (the first release is 0.1.0)
 #   pnpm run release minor      # or: major, or an explicit version such as 1.0.0
+#   EMJOSH_SKIP_LINUX=1 pnpm run release   # macOS only
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -11,6 +13,8 @@ REPO='2785/emjosh'
 APP='release/mac-arm64/Emjosh.app'
 OUT='release/publish'
 ZIP_NAME='Emjosh-mac-arm64.zip'
+APPIMAGE='release/linux-x64/Emjosh-linux-x64.AppImage'
+LINUX_CONTEXT="${EMJOSH_LINUX_DOCKER_CONTEXT:-colima-emjosh-linux}"
 # Keep in sync with PERSONAL_MANIFEST_ASSET in src/main/host/updates/personal-update.ts.
 MANIFEST_NAME='emjosh-update.json'
 
@@ -46,9 +50,14 @@ case "$bump" in
   *) die "Unknown version bump '$bump': use patch, minor, major, or X.Y.Z." ;;
 esac
 git rev-parse -q --verify "refs/tags/v$version" >/dev/null && die "v$version already exists."
+if [ -z "${EMJOSH_SKIP_LINUX:-}" ]; then
+  docker --context "$LINUX_CONTEXT" info >/dev/null 2>&1 ||
+    die "Docker context '$LINUX_CONTEXT' is not running (colima start -p emjosh-linux), or set EMJOSH_SKIP_LINUX=1."
+fi
 echo "Releasing Emjosh $version (${latest:+after $latest, }commit ${commit:0:9})"
 
 EMJOSH_VERSION="$version" pnpm run package:personal
+[ -n "${EMJOSH_SKIP_LINUX:-}" ] || EMJOSH_VERSION="$version" pnpm run package:personal:linux
 
 # Installed copies only accept updates signed by the identity they were signed with, so every
 # release must use the same stable one.
@@ -60,18 +69,27 @@ codesign -dvv "$APP" 2>&1 | grep -q '^Authority=Apple Development: ' ||
 rm -rf "$OUT"
 mkdir -p "$OUT"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUT/$ZIP_NAME"
-cat >"$OUT/$MANIFEST_NAME" <<EOF
-{
-  "version": "$version",
-  "commit": "$commit",
-  "file": "$ZIP_NAME",
-  "sha512": "$(openssl dgst -sha512 -binary "$OUT/$ZIP_NAME" | base64)",
-  "size": $(stat -f %z "$OUT/$ZIP_NAME"),
-  "releasedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-EOF
+assets=("$OUT/$ZIP_NAME")
+if [ -z "${EMJOSH_SKIP_LINUX:-}" ]; then
+  cp "$APPIMAGE" "$OUT/"
+  assets+=("$OUT/$(basename "$APPIMAGE")")
+fi
 
-gh_ release create "v$version" "$OUT/$ZIP_NAME" "$OUT/$MANIFEST_NAME" \
+asset_json() {
+  printf '{ "file": "%s", "sha512": "%s", "size": %s }' "$(basename "$1")" \
+    "$(openssl dgst -sha512 -binary "$1" | base64)" "$(stat -f %z "$1")"
+}
+{
+  printf '{\n  "version": "%s",\n  "commit": "%s",\n  "releasedAt": "%s",\n  "assets": {\n' \
+    "$version" "$commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '    "mac-arm64": %s' "$(asset_json "$OUT/$ZIP_NAME")"
+  if [ -z "${EMJOSH_SKIP_LINUX:-}" ]; then
+    printf ',\n    "linux-x64": %s' "$(asset_json "$OUT/$(basename "$APPIMAGE")")"
+  fi
+  printf '\n  }\n}\n'
+} >"$OUT/$MANIFEST_NAME"
+
+gh_ release create "v$version" "${assets[@]}" "$OUT/$MANIFEST_NAME" \
   --repo "$REPO" --target "$commit" --title "Emjosh $version" --generate-notes
 git fetch -q origin --tags
 echo "Published https://github.com/$REPO/releases/tag/v$version"

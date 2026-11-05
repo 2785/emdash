@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -9,7 +9,7 @@ import { promisify } from 'node:util';
 import { IS_PERSONAL, PRODUCT_NAME } from '@core/primitives/app-identity/api/app-identity';
 import { resolveAppVersion } from '@main/core/app/utils';
 import { log } from '@main/lib/logger';
-import { PERSONAL_STAGE_DIR } from './personal-reload';
+import { PERSONAL_STAGE_DIR, runningAppPath, stagedArtifactName } from './personal-reload';
 
 /** Only this repository's releases are installed; only its owner can publish them. */
 export const PERSONAL_RELEASES_REPO = '2785/emjosh';
@@ -19,32 +19,75 @@ export const PERSONAL_MANIFEST_ASSET = 'emjosh-update.json';
 const STARTUP_DELAY_MS = 30_000;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
+/** Platforms Emjosh is released for, as keys of a manifest's `assets`. */
+export type ReleasePlatform = 'mac-arm64' | 'linux-x64';
+
+/** What a release ships for one platform: a zip of the signed `.app`, or an AppImage. */
+export type PersonalReleaseAsset = {
+  file: string;
+  /** Base64 SHA-512 of the file. */
+  sha512: string;
+  size: number;
+};
+
 export type PersonalReleaseManifest = {
   version: string;
   commit: string;
-  /** Zip asset of the release holding the signed `.app`. */
-  file: string;
-  /** Base64 SHA-512 of the zip. */
-  sha512: string;
-  size: number;
   releasedAt: string;
+  assets: Partial<Record<ReleasePlatform, PersonalReleaseAsset>>;
 };
 
 const VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
+const ASSET_FILE: Record<ReleasePlatform, RegExp> = {
+  'mac-arm64': /^[\w.-]+\.zip$/,
+  'linux-x64': /^[\w.-]+\.AppImage$/,
+};
+
+function parseAsset(raw: unknown, platform: ReleasePlatform): PersonalReleaseAsset | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const a = raw as Record<string, unknown>;
+  const valid =
+    typeof a.file === 'string' &&
+    ASSET_FILE[platform].test(a.file) &&
+    typeof a.sha512 === 'string' &&
+    typeof a.size === 'number';
+  return valid
+    ? { file: a.file as string, sha512: a.sha512 as string, size: a.size as number }
+    : null;
+}
 
 export function parseReleaseManifest(raw: unknown): PersonalReleaseManifest | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const m = raw as Record<string, unknown>;
-  const valid =
-    typeof m.version === 'string' &&
-    VERSION.test(m.version) &&
-    typeof m.commit === 'string' &&
-    typeof m.file === 'string' &&
-    /^[\w.-]+\.zip$/.test(m.file) &&
-    typeof m.sha512 === 'string' &&
-    typeof m.size === 'number' &&
-    typeof m.releasedAt === 'string';
-  return valid ? (m as PersonalReleaseManifest) : null;
+  if (
+    typeof m.version !== 'string' ||
+    !VERSION.test(m.version) ||
+    typeof m.commit !== 'string' ||
+    typeof m.releasedAt !== 'string' ||
+    typeof m.assets !== 'object' ||
+    m.assets === null
+  ) {
+    return null;
+  }
+  const assets: PersonalReleaseManifest['assets'] = {};
+  for (const platform of Object.keys(ASSET_FILE) as ReleasePlatform[]) {
+    const raw = (m.assets as Record<string, unknown>)[platform];
+    if (raw === undefined) continue;
+    const asset = parseAsset(raw, platform);
+    if (!asset) return null;
+    assets[platform] = asset;
+  }
+  return { version: m.version, commit: m.commit, releasedAt: m.releasedAt, assets };
+}
+
+/** The release platform of this process, or null when Emjosh isn't released for it. */
+export function releasePlatform(
+  platform: NodeJS.Platform = process.platform,
+  arch: string = process.arch
+): ReleasePlatform | null {
+  if (platform === 'darwin' && arch === 'arm64') return 'mac-arm64';
+  if (platform === 'linux' && arch === 'x64') return 'linux-x64';
+  return null;
 }
 
 /** `candidate > current` for `x.y.z` versions; anything else is never newer. */
@@ -61,13 +104,14 @@ export function isNewerVersion(candidate: string, current: string): boolean {
 
 export type PersonalUpdateDeps = {
   enabled: boolean;
+  platform: ReleasePlatform | null;
   currentVersion(): Promise<string>;
   /** The latest release's manifest, or null when there is none. */
   fetchManifest(): Promise<unknown>;
   /** Version of the build waiting for Reload, if any. */
   stagedVersion(): Promise<string | null>;
-  /** Downloads, verifies, and stages the release for the Reload button. */
-  stage(manifest: PersonalReleaseManifest): Promise<void>;
+  /** Downloads, verifies, and stages this platform's build for the Reload button. */
+  stage(manifest: PersonalReleaseManifest, asset: PersonalReleaseAsset): Promise<void>;
 };
 
 export type PersonalUpdateResult = 'disabled' | 'up-to-date' | 'already-staged' | 'staged';
@@ -109,12 +153,13 @@ export class PersonalUpdateService {
   }
 
   private async performCheck(): Promise<PersonalUpdateResult> {
-    if (!this.deps.enabled) return 'disabled';
+    if (!this.deps.enabled || !this.deps.platform) return 'disabled';
     const manifest = parseReleaseManifest(await this.deps.fetchManifest());
-    if (!manifest) return 'up-to-date';
+    const asset = manifest?.assets[this.deps.platform];
+    if (!manifest || !asset) return 'up-to-date';
     if (!isNewerVersion(manifest.version, await this.deps.currentVersion())) return 'up-to-date';
     if ((await this.deps.stagedVersion()) === manifest.version) return 'already-staged';
-    await this.deps.stage(manifest);
+    await this.deps.stage(manifest, asset);
     log.info('Staged Emjosh release', { version: manifest.version });
     return 'staged';
   }
@@ -151,41 +196,58 @@ async function download(url: string, path: string): Promise<{ sha512: string; si
   return { sha512: hash.digest('base64'), size };
 }
 
-export function releaseAssetUrl(manifest: PersonalReleaseManifest): string {
-  return `https://github.com/${PERSONAL_RELEASES_REPO}/releases/download/v${manifest.version}/${manifest.file}`;
+export function releaseAssetUrl(version: string, asset: PersonalReleaseAsset): string {
+  return `https://github.com/${PERSONAL_RELEASES_REPO}/releases/download/v${version}/${asset.file}`;
+}
+
+/** Unpacks the downloaded zip and checks the app is signed like the running one. */
+async function prepareMacApp(zip: string, work: string, bundlePath: string, productName: string) {
+  const extracted = join(work, 'app');
+  await execFileAsync('ditto', ['-x', '-k', zip, extracted]);
+  const app = join(extracted, `${productName}.app`);
+  await stat(app);
+  // Only builds signed by the same identity as the running app are accepted.
+  const requirement = await designatedRequirement(bundlePath);
+  await execFileAsync('codesign', ['--verify', '--deep', '--strict', `-R=${requirement}`, app]);
+  return app;
 }
 
 /**
- * Downloads the release, checks it against its manifest and the running app's signing
- * identity, and moves it to `stageDir` with a `build.json` for the Reload button.
+ * Downloads this platform's build, checks it against the manifest (and on macOS against the
+ * running app's signing identity; Linux has no equivalent), and moves it to `stageDir` with a
+ * `build.json` for the Reload button.
  */
 export async function stageRelease(
   manifest: PersonalReleaseManifest,
-  options: { bundlePath: string; stageDir: string; productName: string }
+  asset: PersonalReleaseAsset,
+  options: {
+    platform: ReleasePlatform;
+    bundlePath: string;
+    stageDir: string;
+    productName: string;
+  }
 ): Promise<void> {
-  const { bundlePath, stageDir, productName } = options;
+  const { platform, bundlePath, stageDir, productName } = options;
   const workRoot = join(dirname(stageDir), 'downloads');
   await mkdir(workRoot, { recursive: true });
   const work = await mkdtemp(join(workRoot, `v${manifest.version}-`));
   try {
-    const zip = join(work, manifest.file);
-    const downloaded = await download(releaseAssetUrl(manifest), zip);
-    if (downloaded.sha512 !== manifest.sha512 || downloaded.size !== manifest.size) {
+    const file = join(work, asset.file);
+    const downloaded = await download(releaseAssetUrl(manifest.version, asset), file);
+    if (downloaded.sha512 !== asset.sha512 || downloaded.size !== asset.size) {
       throw new Error('Downloaded release does not match its manifest');
     }
-
-    const extracted = join(work, 'app');
-    await execFileAsync('ditto', ['-x', '-k', zip, extracted]);
-    const app = join(extracted, `${productName}.app`);
-    await stat(app);
-    // Only builds signed by the same identity as the running app are accepted.
-    const requirement = await designatedRequirement(bundlePath);
-    await execFileAsync('codesign', ['--verify', '--deep', '--strict', `-R=${requirement}`, app]);
+    const prepared =
+      platform === 'mac-arm64' ? await prepareMacApp(file, work, bundlePath, productName) : file;
+    if (platform === 'linux-x64') await chmod(prepared, 0o755);
 
     // build.json goes last: the Reload button treats its presence as a complete stage.
     await rm(stageDir, { recursive: true, force: true });
     await mkdir(stageDir, { recursive: true });
-    await rename(app, join(stageDir, `${productName}.app`));
+    await rename(
+      prepared,
+      join(stageDir, stagedArtifactName(platform === 'mac-arm64' ? 'darwin' : 'linux', productName))
+    );
     await writeFile(
       join(stageDir, 'build.json'),
       JSON.stringify({
@@ -202,10 +264,11 @@ export async function stageRelease(
 export function createPersonalUpdateService(electron: {
   isPackaged: boolean;
 }): PersonalUpdateService {
-  // …/Emjosh.app/Contents/MacOS/Emjosh → …/Emjosh.app
-  const bundlePath = dirname(dirname(dirname(process.execPath)));
+  const appPath = runningAppPath();
+  const platform = releasePlatform();
   return new PersonalUpdateService({
-    enabled: IS_PERSONAL && electron.isPackaged && process.platform === 'darwin',
+    enabled: IS_PERSONAL && electron.isPackaged && appPath !== null,
+    platform,
     currentVersion: resolveAppVersion,
     fetchManifest: async () => {
       const response = await fetch(
@@ -224,9 +287,10 @@ export function createPersonalUpdateService(electron: {
         return null;
       }
     },
-    stage: (manifest) =>
-      stageRelease(manifest, {
-        bundlePath,
+    stage: (manifest, asset) =>
+      stageRelease(manifest, asset, {
+        platform: platform!,
+        bundlePath: appPath!,
         stageDir: PERSONAL_STAGE_DIR,
         productName: PRODUCT_NAME,
       }),

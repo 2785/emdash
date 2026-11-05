@@ -1,6 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +17,7 @@ import {
   parseReleaseManifest,
   PersonalUpdateService,
   releaseAssetUrl,
+  releasePlatform,
   stageRelease,
   type PersonalUpdateDeps,
 } from './personal-update';
@@ -18,18 +27,19 @@ vi.mock('@main/lib/logger', () => ({
 }));
 vi.mock('@main/core/app/utils', () => ({ resolveAppVersion: vi.fn() }));
 
+const macAsset = { file: 'Emjosh-mac-arm64.zip', sha512: 'abc==', size: 123 };
+const linuxAsset = { file: 'Emjosh-linux-x64.AppImage', sha512: 'def==', size: 456 };
 const manifest = {
   version: '0.2.0',
   commit: '0123456789abcdef',
-  file: 'Emjosh-mac-arm64.zip',
-  sha512: 'abc==',
-  size: 123,
   releasedAt: '2026-11-05T00:00:00Z',
+  assets: { 'mac-arm64': macAsset, 'linux-x64': linuxAsset },
 };
 
 function makeService(overrides: Partial<PersonalUpdateDeps> = {}) {
   const deps: PersonalUpdateDeps = {
     enabled: true,
+    platform: 'mac-arm64',
     currentVersion: async () => '0.1.0',
     fetchManifest: async () => manifest,
     stagedVersion: async () => null,
@@ -58,23 +68,58 @@ describe('parseReleaseManifest', () => {
     expect(parseReleaseManifest(manifest)).toEqual(manifest);
   });
 
-  it('rejects asset names that could leave the release', () => {
-    expect(parseReleaseManifest({ ...manifest, file: '../evil.zip' })).toBeNull();
-    expect(parseReleaseManifest({ ...manifest, file: 'Emjosh.dmg' })).toBeNull();
+  it('accepts a release for only some platforms', () => {
+    const macOnly = { ...manifest, assets: { 'mac-arm64': macAsset } };
+    expect(parseReleaseManifest(macOnly)).toEqual(macOnly);
+  });
+
+  it('rejects asset names that could leave the release or have the wrong kind', () => {
+    for (const assets of [
+      { 'mac-arm64': { ...macAsset, file: '../evil.zip' } },
+      { 'mac-arm64': { ...macAsset, file: 'Emjosh.dmg' } },
+      { 'linux-x64': { ...linuxAsset, file: 'Emjosh.zip' } },
+    ]) {
+      expect(parseReleaseManifest({ ...manifest, assets })).toBeNull();
+    }
   });
 
   it('rejects missing fields and odd versions', () => {
-    expect(parseReleaseManifest({ ...manifest, sha512: undefined })).toBeNull();
+    expect(
+      parseReleaseManifest({ ...manifest, assets: { 'mac-arm64': { ...macAsset, sha512: 1 } } })
+    ).toBeNull();
+    expect(parseReleaseManifest({ ...manifest, assets: undefined })).toBeNull();
     expect(parseReleaseManifest({ ...manifest, version: 'v0.2.0' })).toBeNull();
     expect(parseReleaseManifest(null)).toBeNull();
   });
 });
 
+describe('releasePlatform', () => {
+  it('maps the platforms Emjosh is released for', () => {
+    expect(releasePlatform('darwin', 'arm64')).toBe('mac-arm64');
+    expect(releasePlatform('linux', 'x64')).toBe('linux-x64');
+    expect(releasePlatform('darwin', 'x64')).toBeNull();
+    expect(releasePlatform('win32', 'x64')).toBeNull();
+  });
+});
+
 describe('PersonalUpdateService', () => {
-  it('stages a newer release', async () => {
+  it("stages a newer release's build for this platform", async () => {
     const { service, deps } = makeService();
     await expect(service.check()).resolves.toBe('staged');
-    expect(deps.stage).toHaveBeenCalledWith(manifest);
+    expect(deps.stage).toHaveBeenCalledWith(manifest, macAsset);
+
+    const linux = makeService({ platform: 'linux-x64' });
+    await linux.service.check();
+    expect(linux.deps.stage).toHaveBeenCalledWith(manifest, linuxAsset);
+  });
+
+  it('skips releases without a build for this platform', async () => {
+    const { service, deps } = makeService({
+      platform: 'linux-x64',
+      fetchManifest: async () => ({ ...manifest, assets: { 'mac-arm64': macAsset } }),
+    });
+    await expect(service.check()).resolves.toBe('up-to-date');
+    expect(deps.stage).not.toHaveBeenCalled();
   });
 
   it('leaves the app alone when the release is not newer', async () => {
@@ -97,16 +142,77 @@ describe('PersonalUpdateService', () => {
     }
   });
 
-  it('does nothing when disabled', async () => {
-    const { service, deps } = makeService({ enabled: false });
-    await expect(service.check()).resolves.toBe('disabled');
-    expect(deps.stage).not.toHaveBeenCalled();
+  it('does nothing when disabled or on platforms without releases', async () => {
+    for (const overrides of [{ enabled: false }, { platform: null }]) {
+      const { service, deps } = makeService(overrides);
+      await expect(service.check()).resolves.toBe('disabled');
+      expect(deps.stage).not.toHaveBeenCalled();
+    }
   });
 
   it('shares one check between concurrent callers', async () => {
     const { service, deps } = makeService();
     await Promise.all([service.check(), service.check()]);
     expect(deps.stage).toHaveBeenCalledTimes(1);
+  });
+});
+
+const releaseInfo = {
+  version: '0.2.0',
+  commit: '0123456789abcdef',
+  releasedAt: '2026-11-05T00:00:00Z',
+};
+
+describe('stageRelease on Linux', () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  function setup(bytes: Buffer) {
+    const root = mkdtempSync(join(tmpdir(), 'emjosh-update-linux-'));
+    roots.push(root);
+    const asset = {
+      file: 'Emjosh-linux-x64.AppImage',
+      sha512: createHash('sha512').update(bytes).digest('base64'),
+      size: bytes.length,
+    };
+    const fetched: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      fetched.push(url);
+      return new Response(new Uint8Array(bytes));
+    });
+    const stageDir = join(root, 'cache', 'staged');
+    const options = {
+      platform: 'linux-x64' as const,
+      bundlePath: join(root, 'Emjosh.AppImage'),
+      stageDir,
+      productName: 'Emjosh',
+    };
+    return { asset, options, stageDir, fetched };
+  }
+
+  it('stages the AppImage, executable, from its tagged asset', async () => {
+    const bytes = Buffer.from('#!/bin/sh\necho new\n');
+    const { asset, options, stageDir, fetched } = setup(bytes);
+    await stageRelease({ ...releaseInfo, assets: { 'linux-x64': asset } }, asset, options);
+
+    expect(fetched).toEqual([releaseAssetUrl('0.2.0', asset)]);
+    const staged = join(stageDir, 'Emjosh.AppImage');
+    expect(readFileSync(staged)).toEqual(bytes);
+    expect(statSync(staged).mode & 0o111).not.toBe(0);
+    expect(JSON.parse(readFileSync(join(stageDir, 'build.json'), 'utf8'))).toMatchObject({
+      version: '0.2.0',
+    });
+  });
+
+  it('rejects a download that does not match the manifest', async () => {
+    const { asset, options, stageDir } = setup(Buffer.from('tampered'));
+    await expect(
+      stageRelease(releaseInfo as never, { ...asset, size: 1 }, options)
+    ).rejects.toThrow('does not match its manifest');
+    expect(existsSync(stageDir)).toBe(false);
   });
 });
 
@@ -150,28 +256,31 @@ describe.runIf(process.platform === 'darwin')('stageRelease', () => {
     const zip = join(root, 'Emjosh-mac-arm64.zip');
     execFileSync('ditto', ['-c', '-k', '--keepParent', join(release, 'Emjosh.app'), zip]);
     const bytes = readFileSync(zip);
-    const manifest = {
-      version: '0.2.0',
-      commit: '0123456789abcdef',
+    const asset = {
       file: 'Emjosh-mac-arm64.zip',
       sha512: createHash('sha512').update(bytes).digest('base64'),
       size: bytes.length,
-      releasedAt: '2026-11-05T00:00:00Z',
     };
+    const manifest = { ...releaseInfo, assets: { 'mac-arm64': asset } };
     const fetched: string[] = [];
     vi.stubGlobal('fetch', async (url: string) => {
       fetched.push(url);
       return new Response(bytes);
     });
     const stageDir = join(root, 'cache', 'staged');
-    const options = { bundlePath: running, stageDir, productName: 'Emjosh' };
-    return { manifest, options, stageDir, fetched };
+    const options = {
+      platform: 'mac-arm64' as const,
+      bundlePath: running,
+      stageDir,
+      productName: 'Emjosh',
+    };
+    return { manifest, asset, options, stageDir, fetched };
   }
 
   it('stages a release signed like the running app, from its tagged asset', async () => {
-    const { manifest, options, stageDir, fetched } = setup('same');
-    await stageRelease(manifest, options);
-    expect(fetched).toEqual([releaseAssetUrl(manifest)]);
+    const { manifest, asset, options, stageDir, fetched } = setup('same');
+    await stageRelease(manifest, asset, options);
+    expect(fetched).toEqual([releaseAssetUrl('0.2.0', asset)]);
     expect(existsSync(join(stageDir, 'Emjosh.app', 'Contents', 'MacOS', 'Emjosh'))).toBe(true);
     expect(JSON.parse(readFileSync(join(stageDir, 'build.json'), 'utf8'))).toEqual({
       builtAt: '2026-11-05T00:00:00Z',
@@ -181,14 +290,14 @@ describe.runIf(process.platform === 'darwin')('stageRelease', () => {
   });
 
   it('rejects a release signed by anyone else', async () => {
-    const { manifest, options, stageDir } = setup('other');
-    await expect(stageRelease(manifest, options)).rejects.toThrow();
+    const { manifest, asset, options, stageDir } = setup('other');
+    await expect(stageRelease(manifest, asset, options)).rejects.toThrow();
     expect(existsSync(stageDir)).toBe(false);
   });
 
   it('rejects a download that does not match the manifest', async () => {
-    const { manifest, options, stageDir } = setup('same');
-    await expect(stageRelease({ ...manifest, sha512: 'bogus' }, options)).rejects.toThrow(
+    const { manifest, asset, options, stageDir } = setup('same');
+    await expect(stageRelease(manifest, { ...asset, sha512: 'bogus' }, options)).rejects.toThrow(
       'does not match its manifest'
     );
     expect(existsSync(stageDir)).toBe(false);
