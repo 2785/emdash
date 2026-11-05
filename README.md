@@ -38,10 +38,10 @@ problems to them.
 
 ### Chat
 
-- **Interrupt mode.** Settings → General → *Messages sent while agent is working*: *Queue*
-  (Emdash's behavior) or *Interrupt*, which hands your message (merged with anything queued)
-  to the running agent mid-turn, so it decides what to stop or let finish. Agents that can't
-  take messages mid-turn stop and run it next.
+- **Steer the agent mid-turn.** Settings → General → *Messages sent while agent is working*:
+  *Queue* (Emdash's behavior) or *Steer*, which hands your message (merged with anything
+  queued) to the running agent right away, so it adjusts course without stopping. Agents that
+  can't take messages mid-turn stop and run it next.
 - **Inline attachment references.** Pasted or dropped images get an `[Image 1]` pill where
   your cursor is, and the agent sees which image is which; long pasted text collapses into a
   `[Snippet 1]` pill that still sends the full text in place.
