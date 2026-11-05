@@ -75,6 +75,8 @@ export type Task = {
   conversations: Record<string, number>;
   workspaceGit?: { linesAdded: number; linesDeleted: number };
   workspaceId?: string;
+  /** Optional cross-project group this task belongs to. */
+  initiativeId?: string;
   type: 'task' | 'automation-run';
   automationRunId?: string;
   automationRunMeta?: AutomationRunMeta;

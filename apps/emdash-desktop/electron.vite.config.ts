@@ -3,7 +3,9 @@ import { basename, extname, resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'electron-vite';
+import type { Plugin } from 'vite';
 import { desktopWorkers } from './src/core/manifests/node/workers';
+import { resolveAppIdentity } from './src/core/primitives/app-identity/api/app-identity';
 
 function desktopWorkerBuildInputs(): Record<string, string> {
   return Object.fromEntries(
@@ -27,6 +29,34 @@ function copyAdapterAssetsPlugin() {
         if (isNodeError(error) && error.code === 'ENOENT') return;
         throw error;
       }
+    },
+  };
+}
+
+/**
+ * Fills `%PRODUCT_NAME%` in index.html with the build flavor's product name. The personal
+ * build replaces the Emdash logo between the `splash-logo` markers with a text wordmark.
+ */
+function productNameHtmlPlugin(): Plugin {
+  let productName = 'Emdash';
+  let personal = false;
+  return {
+    name: 'product-name-html',
+    configResolved(config) {
+      const identity = resolveAppIdentity({
+        dev: config.env.DEV === true,
+        build: config.env.VITE_BUILD,
+      });
+      productName = identity.PRODUCT_NAME;
+      personal = identity.IS_PERSONAL;
+    },
+    transformIndexHtml: (html) => {
+      const named = html.replaceAll('%PRODUCT_NAME%', productName);
+      if (!personal) return named;
+      return named.replace(
+        /<!-- splash-logo -->[\s\S]*?<!-- \/splash-logo -->/,
+        `<div class="boot-splash-wordmark">${productName}</div>`
+      );
     },
   };
 }
@@ -66,6 +96,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/entry/main.ts'),
+          // stdio bridge for MCP clients outside the app (see src/entry/mcp-bridge.ts).
+          'mcp-bridge': resolve('src/entry/mcp-bridge.ts'),
           ...desktopWorkerBuildInputs(),
         },
         output: {
@@ -104,7 +136,7 @@ export default defineConfig({
     root: 'src/renderer',
     // Same env files as main, so build flavor variables (VITE_BUILD) reach the renderer too.
     envDir: resolve('.'),
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), productNameHtmlPlugin()],
     resolve: {
       alias: {
         '@': resolve('src'),

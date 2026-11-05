@@ -335,3 +335,20 @@ export const taskPaneLayoutMemento = defineMemento({
     activeGroupId: 'default',
   },
 });
+
+const taskNamingV1Schema = z.object({
+  version: z.literal('1'),
+  /** The name Emdash last gave the task automatically; a different current name was chosen. */
+  autoName: z.string().optional(),
+});
+
+export const taskNamingSchema = defineVersionedSchema().initial('1', taskNamingV1Schema).build();
+export type TaskNamingState = typeof taskNamingSchema.Type;
+
+/** Lets a task keep following its conversation's title until the user names it. */
+export const taskNamingMemento = defineMemento({
+  id: 'tasks.naming',
+  subject: taskSubject,
+  schema: taskNamingSchema,
+  default: { version: '1' as const },
+});

@@ -26,6 +26,8 @@ export type AcpWorkerSpecInput = {
   logger?: Logger;
   dependencies: ProvidedWireComponentRequirements<AcpComponent['requirements']>;
   intentsFilePath: string;
+  /** Host app control endpoint file; see `controlEndpointFile` in the component config. */
+  controlEndpointFile?: string;
 };
 
 /**
@@ -49,6 +51,7 @@ export function acpWorkerSpec(
       dependencies: input.dependencies,
       config: {
         intentsFilePath: input.intentsFilePath,
+        ...(input.controlEndpointFile ? { controlEndpointFile: input.controlEndpointFile } : {}),
         lifecycle: {
           session: { kind: 'idle-after', outputMs: SESSION_IDLE_MS },
           connectionIdleTtlMs: ACP_CONNECTION_IDLE_TTL_MS,

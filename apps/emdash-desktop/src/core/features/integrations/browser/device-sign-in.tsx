@@ -4,6 +4,7 @@ import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getIntegrationsClient } from '@core/features/integrations/api/browser/client';
 import { invalidateProviderAccountState } from '@core/features/integrations/api/browser/use-provider-accounts';
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import { openExternal } from '@core/primitives/desktop-host/browser/host-client';
 import { log } from '@core/primitives/logging/browser/logger';
 import { EMDASH_ISSUES_URL } from '@core/primitives/urls/api/urls';
@@ -239,13 +240,16 @@ export function DeviceSignIn({
                   <span>Waiting for authorization</span>
                   <span>Code expires in {formatTime(secondsLeft)}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void openExternal(EMDASH_ISSUES_URL)}
-                  className="shrink-0 underline-offset-3 hover:text-foreground hover:underline focus:text-foreground focus:underline focus:outline-none"
-                >
-                  Having trouble?
-                </button>
+                {/* Emjosh does not send users to Emdash's issue tracker. */}
+                {!IS_PERSONAL && (
+                  <button
+                    type="button"
+                    onClick={() => void openExternal(EMDASH_ISSUES_URL)}
+                    className="shrink-0 underline-offset-3 hover:text-foreground hover:underline focus:text-foreground focus:underline focus:outline-none"
+                  >
+                    Having trouble?
+                  </button>
+                )}
               </div>
             ) : null}
           </>

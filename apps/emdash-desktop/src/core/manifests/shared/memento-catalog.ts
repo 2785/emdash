@@ -5,6 +5,7 @@ import {
 } from '@core/features/projects/contributions/mementos';
 import {
   taskChromeMemento,
+  taskNamingMemento,
   taskDiffPreferencesMemento,
   taskDiffSelectionMemento,
   taskEditorTreeMemento,
@@ -31,6 +32,7 @@ export const mementoCatalog: readonly MementoCatalogEntry[] = [
   projectViewMemento,
   workspaceChromeMemento,
   taskChromeMemento,
+  taskNamingMemento,
   taskTerminalSelectionMemento,
   taskEditorTreeMemento,
   taskDiffPreferencesMemento,

@@ -27,6 +27,24 @@ export const pill = style({
   verticalAlign: 'baseline',
 });
 
+export const compactPill = style({
+  display: 'inline-block',
+  cursor: 'default',
+  userSelect: 'none',
+  maxWidth: '200px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  verticalAlign: 'baseline',
+  padding: '0 0.25em',
+  borderRadius: '3px',
+  border: `1px solid color-mix(in srgb, ${vars.foreground} 18%, transparent)`,
+  backgroundColor: `color-mix(in srgb, ${vars.foreground} 5%, transparent)`,
+  fontSize: '0.85em',
+  lineHeight: 1.3,
+  color: `color-mix(in srgb, ${vars.foreground} 80%, transparent)`,
+});
+
 const pendingPulse = keyframes({
   '0%, 100%': { opacity: 1 },
   '50%': { opacity: 0.55 },

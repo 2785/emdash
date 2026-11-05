@@ -80,6 +80,14 @@ describe('SettingsStore contributions', () => {
     ).toBe('pty');
   });
 
+  it('defaults the window frame to untinted and persists a chosen tint', async () => {
+    rows.clear();
+    const settings = new SettingsStore(db, appSettingsContributions);
+    expect(await settings.get('frameTint')).toBe('none');
+    await settings.update('frameTint', 'green');
+    expect(await new SettingsStore(db, appSettingsContributions).get('frameTint')).toBe('green');
+  });
+
   it('defaults chat follow-ups to queueing and persists interrupt mode', async () => {
     rows.clear();
     const settings = new SettingsStore(db, appSettingsContributions);

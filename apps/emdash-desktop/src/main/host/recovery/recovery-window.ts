@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, shell } from 'electron';
+import { PRODUCT_NAME } from '@core/primitives/app-identity/api/app-identity';
 import { clearBootFailureMarker } from '@main/bootstrap/core/boot-guard';
 import { getLogFilePath } from '@main/host/file-logger';
 import { log } from '@main/lib/logger';
@@ -75,14 +76,17 @@ export async function showRecoveryWindow(options: RecoveryWindowOptions): Promis
 
   // Inject the initial state synchronously so the page renders immediately
   // without any async round-trip.
-  const html = injectBootstrap(recoveryHtmlTemplate, buildState());
+  const html = injectBootstrap(
+    recoveryHtmlTemplate.replaceAll('%PRODUCT_NAME%', PRODUCT_NAME),
+    buildState()
+  );
 
   const window = new BrowserWindow({
     width: 560,
     height: 480,
     minWidth: 440,
     minHeight: 380,
-    title: 'Emdash Recovery',
+    title: `${PRODUCT_NAME} Recovery`,
     show: false,
     autoHideMenuBar: true,
     webPreferences: {

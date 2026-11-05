@@ -4,6 +4,7 @@ import { WindowControls } from '@core/features/workbench/browser/window-controls
 import { useWorkspaceLayoutContext } from '@core/features/workbench/contributions/browser/layout-provider';
 import { detectPlatformContext } from '@core/primitives/keybindings/api';
 import { cn } from '@core/primitives/styling/browser/cn';
+import { FRAME_TINTED_CLASS } from '@core/primitives/theme/api/frame-tint';
 
 const platform = detectPlatformContext().os;
 const isMac = platform === 'mac';
@@ -15,6 +16,7 @@ export function Titlebar({ leftSlot, rightSlot }: { leftSlot?: ReactNode; rightS
     <header
       className={cn(
         'flex h-10 shrink-0 items-center bg-background-secondary border-b border-border [-webkit-app-region:drag]',
+        FRAME_TINTED_CLASS,
         // macOS traffic lights sit at the top-left, so clear room only there.
         !isLeftOpen && isMac && 'pl-18',
         // Linux draws its own controls flush to the right corner (no native

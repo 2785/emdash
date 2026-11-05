@@ -70,6 +70,7 @@ import {
   toAcpImageAttachmentMimeType,
   uploadDroppedFile,
 } from './acp-dropped-file';
+import { labelImageAttachments } from './acp-image-labels';
 import { appendDraftCommentsContext } from './draft-comments-context';
 import { buildIssueMentionHiddenContext } from './issue-mention-context';
 import { createTranscriptFileCommands } from './transcript-file-commands';
@@ -365,9 +366,23 @@ const ComposerForStore = observer(function ComposerForStore({
       }
 
       const next = await Promise.all(supportedFiles.map((file) => uploadImageFile(store, file)));
-      const uploaded = next.filter((att): att is AcpPromptAttachment => att !== null);
+      const uploaded = labelImageAttachments(
+        store.draftAttachments,
+        next.filter((att): att is AcpPromptAttachment => att !== null)
+      );
       if (uploaded.length > 0) {
         store.addDraftAttachments(uploaded);
+        // An inline "[Image N]" pill marks where in the prompt each image is meant.
+        for (const { ref } of uploaded) {
+          store.composerModel.insertMention({
+            id: ref.id,
+            label: ref.name ?? '',
+            name: ref.name,
+            kind: 'custom',
+            compact: true,
+            serializedText: `[${ref.name}]`,
+          });
+        }
       }
     },
     [store]
@@ -389,6 +404,7 @@ const ComposerForStore = observer(function ComposerForStore({
       for (const attachment of attachments) {
         if (attachment.kind === 'image' && !nextIds.has(attachment.id)) {
           store.removeDraftAttachment(attachment.id);
+          store.composerModel.removeMention(attachment.id);
         }
       }
     },

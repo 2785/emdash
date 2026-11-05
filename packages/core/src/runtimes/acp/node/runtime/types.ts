@@ -1,5 +1,6 @@
 import type { Logger } from '@emdash/shared/logger';
 import type { Clock } from '@emdash/shared/scheduling';
+import type { McpServerRegistration } from '#primitives/mcp/api';
 import type {
   AcpStartInputWire,
   PromptAttachment,
@@ -36,6 +37,8 @@ export interface AcpRuntimeDeps {
   /** Lifecycle reports into the conversation index (spec §3.3); defaults to a no-op. */
   conversationReports?: ConversationLifecycleReporter;
   clock?: Clock;
+  /** Extra MCP servers for one conversation's session, beyond the provider's configured ones. */
+  sessionMcpServers?: (conversationId: string) => Promise<readonly McpServerRegistration[]>;
   lifecycle?: {
     session?: IdlePolicyConfig;
     sweepIntervalMs?: number;

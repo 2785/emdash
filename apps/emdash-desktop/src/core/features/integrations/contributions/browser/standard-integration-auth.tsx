@@ -13,6 +13,7 @@ import {
   IntegrationAuthMethodPicker,
   type IntegrationAuthMethodOption,
 } from '@core/features/integrations/contributions/browser/integration-auth-method-picker';
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import { DeviceSignIn } from '../../browser/device-sign-in';
 import { IntegrationSetupForm } from '../../browser/integration-setup-modal';
 
@@ -119,7 +120,7 @@ export function StandardIntegrationAuth({
  * links the provider account when signed in to Emdash; otherwise signs in with
  * the provider, or, for providers that can only be linked, signs in with
  * EMDASH_SIGN_IN_PROVIDER first and then links. `null` when the integration
- * does not offer this method.
+ * does not offer this method, or in Emjosh, which has no Emdash account.
  */
 function useEmdashOAuthMethod({
   metadata,
@@ -141,7 +142,7 @@ function useEmdashOAuthMethod({
   const [error, setError] = useState<string>();
 
   const method = metadata.auth.methods.find((candidate) => candidate.kind === 'oauth');
-  if (method?.kind !== 'oauth') return null;
+  if (IS_PERSONAL || method?.kind !== 'oauth') return null;
   const { name } = metadata;
   const isSignedIn = session?.isSignedIn === true;
   const linkOnly = method.providerId !== EMDASH_SIGN_IN_PROVIDER.id;

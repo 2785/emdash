@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import type { Logger } from '@emdash/shared/logger';
 import type { PluginRegistry } from '@emdash/shared/plugins';
@@ -27,6 +28,11 @@ import { userShellEnvContract } from '#services/shell-env/api';
 
 export const tuiAgentsComponentConfigSchema = z.object({
   intentsFilePath: z.string().min(1).optional(),
+  /**
+   * JSON file ({ url, token }) of the host app's control MCP endpoint. When present, Claude
+   * sessions get it as an `emjosh` MCP server identifying their conversation.
+   */
+  controlEndpointFile: z.string().min(1).optional(),
   lifecycle: z
     .object({
       session: idlePolicyConfigSchema.optional(),
@@ -76,6 +82,10 @@ export function createTuiAgentsComponent(options: CreateTuiAgentsComponentOption
         env,
         exec,
         intents,
+        sessionExtraArgs: config.controlEndpointFile
+          ? (providerId, conversationId) =>
+              claudeControlMcpArgs(config.controlEndpointFile!, providerId, conversationId)
+          : undefined,
         conversationReports: createConversationLifecycleReporter({
           client: dependencies.conversations,
           logger: runtimeLogger,
@@ -99,4 +109,33 @@ export function createTuiAgentsComponent(options: CreateTuiAgentsComponentOption
       });
     },
   });
+}
+
+/** `--mcp-config` adding the host's control endpoint to Claude; nothing for other agents. */
+async function claudeControlMcpArgs(
+  endpointFile: string,
+  providerId: string,
+  conversationId: string
+): Promise<string[]> {
+  if (providerId !== 'claude') return [];
+  let info: { url?: unknown; token?: unknown };
+  try {
+    info = JSON.parse(await readFile(endpointFile, 'utf8'));
+  } catch {
+    return [];
+  }
+  if (typeof info.url !== 'string' || typeof info.token !== 'string') return [];
+  const config = {
+    mcpServers: {
+      emjosh: {
+        type: 'http',
+        url: info.url,
+        headers: {
+          Authorization: `Bearer ${info.token}`,
+          'x-emjosh-conversation': conversationId,
+        },
+      },
+    },
+  };
+  return ['--mcp-config', JSON.stringify(config)];
 }

@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   blockUpdates: false,
   emit: vi.fn(),
   select: vi.fn(),
-  selectRows: [] as Array<TestConversationRow | null>,
+  selectRows: [] as Array<TestConversationRow | { agentStatus: string | null } | null>,
   update: vi.fn(),
   updateCalls: [] as Array<Record<string, unknown>>,
   updateRows: [] as Array<TestConversationRow | null>,
@@ -118,6 +118,42 @@ describe('AgentStatusService', () => {
     resolveUpdate(2);
 
     await Promise.all([first, second]);
+  });
+
+  describe('task activity', () => {
+    const taskActivityUpdates = () =>
+      mocks.updateCalls.filter((call) => 'lastInteractedAt' in call);
+
+    it('marks the task active when a live signal changes the agent status', async () => {
+      const service = new AgentStatusService();
+      mocks.selectRows.push({ agentStatus: 'completed' });
+      mocks.updateRows.push(row());
+
+      await service.applySignal(signal('start'));
+
+      expect(taskActivityUpdates()).toHaveLength(1);
+    });
+
+    it('does not mark the task active when the status is unchanged', async () => {
+      const service = new AgentStatusService();
+      mocks.selectRows.push({ agentStatus: 'working' });
+      mocks.updateRows.push(row());
+
+      await service.applySignal(signal('start'));
+
+      expect(taskActivityUpdates()).toHaveLength(0);
+    });
+
+    it('does not mark the task active for cached startup snapshots', async () => {
+      const service = new AgentStatusService();
+      mocks.selectRows.push({ agentStatus: 'idle' });
+      mocks.updateRows.push(row());
+
+      await service.cacheSignal(signal('stop'));
+
+      expect(taskActivityUpdates()).toHaveLength(0);
+      expect(mocks.select).not.toHaveBeenCalled();
+    });
   });
 
   it('drops a signal when its conversation no longer exists', async () => {

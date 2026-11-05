@@ -288,6 +288,7 @@ function mentionNode(item: MentionItem): JSONContent {
       kind: item.kind,
       pending: item.pending ?? false,
       serializedText: item.serializedText ?? null,
+      compact: item.compact ?? false,
     },
   };
 }
@@ -346,19 +347,42 @@ function serializedOffsetAtPosition(doc: ProseMirrorNode, position: number): num
   return serializeDoc(doc.cut(0, clamped)).length;
 }
 
+const SNIPPET_MIN_LINES = 10;
+const SNIPPET_MIN_CHARS = 1000;
+
+export function isSnippetPaste(text: string): boolean {
+  return text.length >= SNIPPET_MIN_CHARS || text.split('\n').length >= SNIPPET_MIN_LINES;
+}
+
+/** A pill standing in for pasted text; serializes to the label plus the text in a code fence. */
+export function snippetMention(text: string, index: number): MentionItem {
+  const label = `Snippet ${index}`;
+  const longestFence = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = '`'.repeat(Math.max(3, longestFence + 1));
+  return {
+    id: `snippet:${crypto.randomUUID()}`,
+    label,
+    name: label,
+    kind: 'custom',
+    compact: true,
+    serializedText: `[${label}]\n${fence}\n${text.replace(/\n+$/, '')}\n${fence}\n`,
+  };
+}
+
 function mentionInsertContent(item: MentionItem): JSONContent[] {
   return [mentionNode(item), { type: 'text', text: ' ' }];
 }
 
 function mentionSignature(mentions: PromptEditorProps['mentions']): string {
   return JSON.stringify(
-    mentions?.map(({ id, kind, label, name, pending, serializedText }) => ({
+    mentions?.map(({ id, kind, label, name, pending, serializedText, compact }) => ({
       id,
       kind,
       label,
       name,
       pending,
       serializedText,
+      compact,
     })) ?? []
   );
 }
@@ -437,6 +461,22 @@ function createEditor(model: PromptEditorModel, content: JSONContent): Editor {
       attributes: {
         class: cx('prompt-editor-content', styles.promptEditorContentClass),
         'data-testid': 'prompt-editor',
+      },
+      // Long pasted text collapses into an inline "[Snippet N]" pill; the full text is still
+      // what gets sent, at that spot in the prompt.
+      handlePaste: (view, event) => {
+        const data = event.clipboardData;
+        if (!data || data.files.length > 0) return false;
+        const text = data.getData('text/plain');
+        if (!isSnippetPaste(text)) return false;
+        let snippets = 0;
+        view.state.doc.descendants((node) => {
+          if (node.type.name === 'mention' && String(node.attrs.id).startsWith('snippet:')) {
+            snippets += 1;
+          }
+        });
+        model.insertMention(snippetMention(text, snippets + 1));
+        return true;
       },
       clipboardTextSerializer: (slice) => {
         const parts: string[] = [];

@@ -64,6 +64,22 @@ export function MentionPill({
   const kind = ((node.attrs.kind as string | null) ?? 'custom') as MentionKind;
   const pending = node.attrs.pending === true;
 
+  if (node.attrs.compact === true) {
+    return (
+      <NodeViewWrapper as="span" className={cx('mention-pill-wrapper', styles.pillWrapper)}>
+        <span
+          contentEditable={false}
+          className={cx(styles.compactPill, pending && styles.pillPending)}
+          data-mention-id={id}
+          data-mention-kind={kind}
+          data-mention-pending={pending || undefined}
+        >
+          {name}
+        </span>
+      </NodeViewWrapper>
+    );
+  }
+
   return (
     <NodeViewWrapper as="span" className={cx('mention-pill-wrapper', styles.pillWrapper)}>
       <span

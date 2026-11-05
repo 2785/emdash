@@ -20,7 +20,15 @@ fi
 
 pnpm exec electron-builder --mac --publish never --config electron-builder.personal.config.ts
 
-# electron-builder only signs with trusted identities, so sign with the local identity here.
-identity="$(bash scripts/setup-emjosh-signing.sh)"
+# Prefer an Apple Development identity (free with an Apple ID): its Team ID gives keychain items
+# a stable partition, so they stay readable across rebuilds. The self-signed fallback keeps the
+# same code requirement, but macOS ties its keychain partition to each build's hash, so expect
+# one keychain prompt per rebuild with it.
+identity="${EMJOSH_SIGNING_IDENTITY:-$(security find-identity -v -p codesigning |
+  awk '/"Apple Development: / { print $2; exit }')}"
+if [ -z "$identity" ]; then
+  identity="$(bash scripts/setup-emjosh-signing.sh)"
+fi
+echo "Signing with $(security find-identity -p codesigning | awk -v h="$identity" '$2 == h { $1 = $2 = ""; print; exit }')"
 codesign --force --deep --sign "$identity" release/mac-arm64/Emjosh.app
 codesign --verify --deep --strict release/mac-arm64/Emjosh.app

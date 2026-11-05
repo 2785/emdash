@@ -19,6 +19,16 @@ vi.mock('@core/features/conversations/browser/acp/acp-chat-panel', () => ({
   AcpChatPanel: () => null,
 }));
 
+const initiativesState = vi.hoisted(() => ({
+  initiatives: [] as { id: string; name: string }[],
+}));
+vi.mock('@core/features/initiatives/api/browser/initiatives-store', () => ({
+  getInitiativesStore: () => ({
+    initiatives: initiativesState.initiatives,
+    byId: new Map(initiativesState.initiatives.map((i) => [i.id, i])),
+  }),
+}));
+
 function projectManager(projects: { id: string; createdAt: string }[]): SidebarProjectManager {
   return {
     projects: new Map(projects.map((p) => [p.id, { ...p, context: null }])),
@@ -112,6 +122,7 @@ describe('SidebarStore project ordering', () => {
       projectOrder: [],
       taskOrderByProject: {},
       taskSortBy: 'created-at',
+      groupBy: 'project',
     });
     const store = new SidebarStore(manager);
     store.attachMemento(handle);
@@ -138,6 +149,7 @@ describe('SidebarStore project ordering', () => {
       projectOrder: ['project-1'],
       taskOrderByProject: {},
       taskSortBy: 'updated-at',
+      groupBy: 'project',
     });
 
     store.attachMemento(handle);
@@ -156,6 +168,7 @@ describe('SidebarStore project ordering', () => {
       projectOrder: [],
       taskOrderByProject: {},
       taskSortBy: 'created-at',
+      groupBy: 'project',
     });
     store.attachMemento(handle);
 
@@ -244,5 +257,108 @@ describe('SidebarStore project ordering', () => {
     ]);
     expect(store.visibleTaskIdsForProject('project-1')).toEqual([]);
     expect(store.sidebarRows).toEqual([{ kind: 'project', projectId: 'project-1' }]);
+  });
+});
+
+describe('SidebarStore grouping', () => {
+  it('lists every task across projects in one sorted list when ungrouped', () => {
+    const store = new SidebarStore(
+      projectManagerWithTasks([
+        { id: 'project-a', createdAt: '2026-01-01T00:00:00.000Z', taskIds: ['a1', 'a2'] },
+        { id: 'project-b', createdAt: '2026-01-02T00:00:00.000Z', taskIds: ['b1', 'b2', 'b3'] },
+      ])
+    );
+    store.setGroupBy('none');
+
+    // Tasks are created at :00, :01, :02 within each project; newest first, ties by id.
+    expect(store.sidebarRows).toEqual([
+      { kind: 'task', projectId: 'project-b', taskId: 'b3' },
+      { kind: 'task', projectId: 'project-a', taskId: 'a2' },
+      { kind: 'task', projectId: 'project-b', taskId: 'b2' },
+      { kind: 'task', projectId: 'project-a', taskId: 'a1' },
+      { kind: 'task', projectId: 'project-b', taskId: 'b1' },
+    ]);
+    expect(store.visibleTaskEntries.map((entry) => entry.taskId)).toEqual([
+      'b3',
+      'a2',
+      'b2',
+      'a1',
+      'b1',
+    ]);
+  });
+
+  it('groups by project by default and remembers the choice', () => {
+    const store = new SidebarStore(projectManager([]));
+    const handle = mementoHandle({ ...workbenchSidebarDefault(), groupBy: 'project' });
+    store.attachMemento(handle);
+    expect(store.groupBy).toBe('project');
+
+    store.setGroupBy('none');
+
+    expect(handle.value.groupBy).toBe('none');
+  });
+});
+
+function workbenchSidebarDefault(): WorkbenchSidebarState {
+  return {
+    version: '1',
+    expandedProjectIds: [],
+    projectOrder: [],
+    taskOrderByProject: {},
+    taskSortBy: 'created-at',
+    groupBy: 'project',
+  };
+}
+
+describe('SidebarStore initiative grouping', () => {
+  it('lists initiatives with their tasks from any project, then the rest under Other', () => {
+    initiativesState.initiatives = [
+      { id: 'i-accounts', name: 'Accounts v2' },
+      { id: 'i-empty', name: 'Nothing yet' },
+    ];
+    const manager = projectManagerWithTasks([
+      { id: 'api', createdAt: '2026-01-01T00:00:00.000Z', taskIds: ['api-1', 'api-2'] },
+      { id: 'web', createdAt: '2026-01-02T00:00:00.000Z', taskIds: ['web-1'] },
+    ]);
+    const tasksOf = (projectId: string) =>
+      (
+        manager.projects.get(projectId) as unknown as {
+          context: {
+            context: {
+              get: (token: unknown) => { tasks: Map<string, { data: Record<string, unknown> }> };
+            };
+          };
+        }
+      ).context.context.get(taskManagerStoreToken).tasks;
+    tasksOf('api').get('api-1')!.data.initiativeId = 'i-accounts';
+    tasksOf('web').get('web-1')!.data.initiativeId = 'i-accounts';
+    tasksOf('api').get('api-2')!.data.initiativeId = 'i-archived-or-gone';
+    const store = new SidebarStore(manager);
+    store.setGroupBy('initiative');
+
+    expect(store.sidebarRows).toEqual([
+      { kind: 'initiative', initiativeId: 'i-accounts', label: 'Accounts v2', count: 2 },
+      { kind: 'task', projectId: 'api', taskId: 'api-1' },
+      { kind: 'task', projectId: 'web', taskId: 'web-1' },
+      { kind: 'initiative', initiativeId: null, label: 'Other', count: 1 },
+      { kind: 'task', projectId: 'api', taskId: 'api-2' },
+    ]);
+    expect(store.visibleTaskEntries.map((entry) => entry.taskId)).toEqual([
+      'api-1',
+      'web-1',
+      'api-2',
+    ]);
+  });
+
+  it('shows a plain list when no task is in an initiative', () => {
+    initiativesState.initiatives = [];
+    const store = new SidebarStore(
+      projectManagerWithTasks([
+        { id: 'api', createdAt: '2026-01-01T00:00:00.000Z', taskIds: ['a'] },
+      ])
+    );
+    store.setGroupBy('initiative');
+
+    expect(store.sidebarRows).toEqual([{ kind: 'task', projectId: 'api', taskId: 'a' }]);
   });
 });

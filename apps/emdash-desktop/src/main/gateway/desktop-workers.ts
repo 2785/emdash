@@ -91,6 +91,7 @@ import { resolveFileSearchDatabasePath } from '@main/core/file-search/database-p
 import { providerAccountRegistry } from '@main/core/provider-accounts/provider-account-registry-instance';
 import { sessionIntentFilePaths } from '@main/core/runtime/session-intent-stores';
 import { getGitExecutable } from '@main/core/utils/exec';
+import { controlEndpointFile } from '@main/core/workspace-control/endpoint-file';
 import { getAppDb } from '@main/db/instance';
 import { desktopKeyValueStore } from '@main/db/kv';
 import { resolveDatabasePath } from '@main/db/path';
@@ -275,6 +276,7 @@ function startDesktopWorkersWithHost(
           userEnv: userShellEnv,
         },
         intentsFilePath: sessionIntentFilePaths().acp,
+        controlEndpointFile: controlEndpointFile(),
       })
     );
     return { client: await worker.ready(), worker };
@@ -455,6 +457,7 @@ function startDesktopWorkersWithHost(
             gitCredentialChannels,
           },
           intentsFilePath: sessionIntentFilePaths().tuiAgents,
+          controlEndpointFile: controlEndpointFile(),
         })
       );
       return { client: await worker.ready(), worker };

@@ -19,6 +19,8 @@ export type TuiAgentsWorkerSpecInput = {
   logger?: Logger;
   dependencies: ProvidedWireComponentRequirements<TuiAgentsComponent['requirements']>;
   intentsFilePath: string;
+  /** Host app control endpoint file; see `controlEndpointFile` in the component config. */
+  controlEndpointFile?: string;
 };
 
 /**
@@ -42,6 +44,7 @@ export function tuiAgentsWorkerSpec(
       dependencies: input.dependencies,
       config: {
         intentsFilePath: input.intentsFilePath,
+        ...(input.controlEndpointFile ? { controlEndpointFile: input.controlEndpointFile } : {}),
         lifecycle: {
           session: { kind: 'always' },
         },

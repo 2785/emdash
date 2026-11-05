@@ -44,6 +44,7 @@ export function buildMentionExtension(
         kind: { default: 'custom' },
         pending: { default: false },
         serializedText: { default: null },
+        compact: { default: false },
       };
     },
     addNodeView() {

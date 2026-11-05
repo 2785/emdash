@@ -34,6 +34,7 @@ export interface AcpConnectionContext {
 export interface AcpConnectionEntry extends AcpConnectionContext {
   agent: AcpAgentApi;
   supportsLoadSession: boolean;
+  supportsSteering: boolean;
   mcpCapabilities: Required<Pick<McpCapabilities, 'http' | 'sse'>>;
 }
 
@@ -170,6 +171,7 @@ async function provisionAcpConnection(
     normalize: connection.data.normalize,
     terminalCommand: binding.behavior.terminalCommand,
     supportsLoadSession: connection.data.supportsLoadSession,
+    supportsSteering: connection.data.supportsSteering,
     mcpCapabilities: connection.data.mcpCapabilities,
   };
 }

@@ -31,6 +31,7 @@ import { createEditorWireController } from '@core/features/editor/node/wire-cont
 import { createFilesWireController } from '@core/features/files/node/wire-controller';
 import type { GitCredentialsService } from '@core/features/github/api/node/services/git-credentials-service';
 import { createGithubWireController } from '@core/features/github/node/wire-controller';
+import { createInitiativesWireController } from '@core/features/initiatives/node/wire-controller';
 import { createIntegrationsWireController } from '@core/features/integrations/node/wire-controller';
 import type { IssueProviderRegistry } from '@core/features/issues/node/registry';
 import { createIssuesWireController } from '@core/features/issues/node/wire-controller';
@@ -75,6 +76,8 @@ import {
   createDesktopHostWireController,
   type DesktopHostControllerOperations,
 } from '@core/features/workbench/node/wire-controller';
+import type { AgentConnection } from '@core/features/workspace-control/api/contract';
+import { createWorkspaceControlWireController } from '@core/features/workspace-control/node/wire-controller';
 import type { WorkspacePlacementResolver } from '@core/features/workspaces/api/node/placement/workspace-placement-resolver';
 import { createWorkspaceRegistry } from '@core/features/workspaces/api/node/registry';
 import type { WorkspaceIdentityService } from '@core/features/workspaces/api/node/workspace-identity-service';
@@ -115,6 +118,7 @@ import {
   type SettingsRuntimePort,
 } from '@core/services/settings/node/wire-controller';
 import { createSshWireController } from '@core/services/ssh/node/controller';
+import { getInitiativesService } from './initiatives';
 
 export type DesktopControllerContext = {
   readonly accountService: EmdashAccountService;
@@ -164,6 +168,7 @@ export type DesktopControllerContext = {
   readonly terminalFileSources: TerminalFileSources;
   readonly terminalShell: CreateTerminalsWireControllerOptions['terminalShell'];
   readonly updateOperations: UpdateOperations;
+  readonly workspaceControlConnection: () => AgentConnection;
   readonly usage: UsageOverviewSource;
   readonly workspaceIdentity: WorkspaceIdentityService;
   readonly workspacePlacement: WorkspacePlacementResolver;
@@ -464,6 +469,13 @@ export const desktopNodeControllers = {
   },
   updates: {
     create: ({ updateOperations }) => createUpdatesWireController(updateOperations),
+  },
+  initiatives: {
+    create: ({ db }) => createInitiativesWireController(getInitiativesService(db)),
+  },
+  workspaceControl: {
+    create: ({ workspaceControlConnection }) =>
+      createWorkspaceControlWireController(workspaceControlConnection),
   },
   host: {
     create: ({ hostOperations }) => createDesktopHostWireController(hostOperations),

@@ -1,9 +1,10 @@
+import { PRODUCT_NAME } from '@core/primitives/app-identity/api/app-identity';
 import { defineCommand } from '@core/primitives/commands/api';
 
 export const devProcessPanelCommand = defineCommand({
   id: 'devPerf.processPanel',
   title: 'Open Process Panel',
-  description: 'Show live CPU and memory usage for every emdash process',
+  description: `Show live CPU and memory usage for every ${PRODUCT_NAME} process`,
   category: 'Developer',
   icon: 'activity',
 });

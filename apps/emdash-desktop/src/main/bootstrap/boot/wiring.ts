@@ -1,6 +1,9 @@
+import { join } from 'node:path';
+import { app } from 'electron';
 import type { EmdashAccountService } from '@core/features/account/node/services/emdash-account-service';
 import { provisionWorkspaceErrorToWorkspaceError } from '@core/features/workspaces/node/wire-controller';
 import type { DesktopControllerContext } from '@core/manifests/node/controllers';
+import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import { appOperations } from '@main/core/app/controller';
 import { terminalFileSources } from '@main/core/app/persist-terminal-attachment';
 import {
@@ -9,6 +12,7 @@ import {
 } from '@main/core/dependencies/dependency-managers';
 import { getTerminalColorEnv } from '@main/core/terminal-shell/color-env';
 import { withCompensation } from '@main/core/utils/compensation';
+import { controlEndpointFile } from '@main/core/workspace-control/endpoint-file';
 import { legacyPortOperations } from '@main/db/legacy-port/controller';
 import type { DesktopRuntimes } from '@main/gateway/desktop-runtimes';
 import { setBrowserCorsRelaxationSettings } from '@main/host/browser/browser-profile-session';
@@ -132,6 +136,19 @@ export function createDesktopWireOptions(
       getColorEnv: getTerminalColorEnv,
     },
     updateOperations,
+    workspaceControlConnection: () =>
+      IS_PERSONAL
+        ? {
+            available: true,
+            command: [
+              'env',
+              'ELECTRON_RUN_AS_NODE=1',
+              process.execPath,
+              join(app.getAppPath(), 'out', 'main', 'mcp-bridge.js'),
+              controlEndpointFile(),
+            ],
+          }
+        : { available: false },
     usage: services.usage,
     workspaceIdentity: database.workspaceIdentity,
     workspacePlacement: services.workspacePlacement,

@@ -10,7 +10,8 @@ export const preferredConversationTypeSettingsContribution = defineSettingsContr
 /**
  * What sending a chat message does while the agent is mid-turn:
  * - `queue`: run it after the current turn finishes.
- * - `interrupt`: cancel the current turn and run it next, merged with any queued messages.
+ * - `interrupt`: hand it (merged with any queued messages) to the running agent, which decides
+ *   what to stop; agents that can't take messages mid-turn cancel and run it next.
  */
 export const followUpModeSettingsContribution = defineSettingsContribution({
   key: 'followUpMode',

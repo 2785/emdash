@@ -95,6 +95,7 @@ function makeTaskRow(values: Partial<TaskRow>): TaskRow {
     workspaceId: values.workspaceId ?? null,
     type: values.type ?? 'task',
     automationRunId: values.automationRunId ?? null,
+    initiativeId: values.initiativeId ?? null,
   };
 }
 

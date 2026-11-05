@@ -1,10 +1,12 @@
-import { Button, Dialog, Tooltip } from '@emdash/ui/react/primitives';
+import { Button, Checkbox, Dialog, Tooltip } from '@emdash/ui/react/primitives';
 import { Check, Copy, ExternalLink, Globe } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useModalController } from '@core/manifests/browser/modal-api';
+import { PRODUCT_NAME } from '@core/primitives/app-identity/api/app-identity';
 import { defineModal } from '@core/primitives/modals/react';
 
 export type ExternalLinkChoice = 'emdash-browser' | 'external-browser';
+export type ExternalLinkChoiceResult = { choice: ExternalLinkChoice; remember: boolean };
 
 export type ExternalLinkChoiceDialogArgs = {
   url: string;
@@ -19,6 +21,7 @@ export function ExternalLinkChoiceDialog({
 }: ExternalLinkChoiceDialogArgs) {
   const controller = useModalController('confirmExternalLinkModal');
   const [copied, setCopied] = useState(false);
+  const [remember, setRemember] = useState(false);
   const copyResetRef = useRef<number | null>(null);
 
   useEffect(
@@ -74,6 +77,10 @@ export function ExternalLinkChoiceDialog({
             </Tooltip.Root>
           </Tooltip.Provider>
         </div>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground-muted">
+          <Checkbox checked={remember} onCheckedChange={(checked) => setRemember(checked)} />
+          Remember my choice (change it in Settings → Interface)
+        </label>
       </Dialog.Body>
       <Dialog.Footer>
         <div className="flex w-full flex-col-reverse gap-2">
@@ -84,15 +91,15 @@ export function ExternalLinkChoiceDialog({
             className="w-full"
             variant="secondary"
             disabled={!canOpenInEmdashBrowser}
-            onClick={() => controller.complete('emdash-browser')}
+            onClick={() => controller.complete({ choice: 'emdash-browser', remember })}
           >
             <Globe className="size-4" />
-            Open in Emdash
+            Open in {PRODUCT_NAME}
           </Button>
           <Button
             className="w-full"
             variant="primary"
-            onClick={() => controller.complete('external-browser')}
+            onClick={() => controller.complete({ choice: 'external-browser', remember })}
           >
             <ExternalLink className="size-4" />
             Open in Browser
@@ -103,7 +110,7 @@ export function ExternalLinkChoiceDialog({
   );
 }
 
-export const confirmExternalLinkModal = defineModal<ExternalLinkChoice>()({
+export const confirmExternalLinkModal = defineModal<ExternalLinkChoiceResult>()({
   id: 'confirmExternalLinkModal',
   component: ExternalLinkChoiceDialog,
   size: 'sm',

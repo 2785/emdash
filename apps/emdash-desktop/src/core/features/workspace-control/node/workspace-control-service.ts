@@ -1,0 +1,271 @@
+import type { Initiative, InitiativeMessage } from '@core/features/initiatives/api/contract';
+
+/**
+ * Workspace control: what an agent (inside Emjosh today, any MCP client later) can do with
+ * Emjosh's projects and workspaces. Transport-agnostic; the MCP endpoint is one adapter.
+ * "Workspace" here is a task: a branch/worktree plus its conversations.
+ */
+
+export type ControlProject = { id: string; name: string; path: string };
+
+export type ControlPullRequest = {
+  url: string;
+  number?: number;
+  title: string;
+  state: 'open' | 'merged' | 'closed' | 'draft';
+};
+
+export type ControlWorkspace = {
+  id: string;
+  name: string;
+  projectId: string;
+  projectName: string;
+  branch: string | null;
+  archived: boolean;
+  agentStatus: string | null;
+  lastActivityAt: string | null;
+  initiativeId: string | null;
+  pullRequest: ControlPullRequest | null;
+};
+
+export type CreateWorkspaceInput = {
+  projectId: string;
+  name?: string;
+  baseBranch?: string;
+  prompt?: string;
+  /** Agent for the first conversation; defaults to the calling workspace's agent. */
+  provider?: string;
+  /** Initiative to put the new workspace in. */
+  initiativeId?: string;
+};
+
+/** The initiative operations workspace control needs (see InitiativesService). */
+export type ControlInitiatives = {
+  list(): Promise<Initiative[]>;
+  get(id: string): Promise<Initiative | null>;
+  create(name: string): Promise<Initiative>;
+  setTaskInitiative(taskIds: string[], initiativeId: string | null): Promise<void>;
+  initiativeOfTask(taskId: string): Promise<Initiative | null>;
+  post(input: {
+    initiativeId: string;
+    fromTaskId: string | null;
+    toTaskId?: string | null;
+    kind?: 'message' | 'event';
+    body: string;
+  }): Promise<InitiativeMessage>;
+  messages(input: {
+    initiativeId: string;
+    forTaskId?: string;
+    afterId?: string;
+  }): Promise<InitiativeMessage[]>;
+  waitForMessages(
+    input: { initiativeId: string; forTaskId?: string; afterId?: string },
+    timeoutMs: number
+  ): Promise<InitiativeMessage[]>;
+};
+
+const MAX_WAIT_SECONDS = 300;
+
+/** Who is calling: the conversation an Emjosh agent runs in, or an external client. */
+export type ControlCaller = { conversationId: string | null };
+
+export type WorkspaceControlDeps = {
+  listProjects(): Promise<ControlProject[]>;
+  listWorkspaces(filter: {
+    projectId?: string;
+    includeArchived: boolean;
+  }): Promise<Omit<ControlWorkspace, 'pullRequest'>[]>;
+  pullRequestForBranch(projectId: string, branch: string): Promise<ControlPullRequest | null>;
+  callerContext(conversationId: string): Promise<{ taskId: string; provider: string } | null>;
+  archiveWorkspace(projectId: string, taskId: string): Promise<void>;
+  createWorkspace(
+    input: CreateWorkspaceInput & { provider: string | undefined }
+  ): Promise<{ id: string; name: string; branch: string | null }>;
+  onArchived?(caller: ControlCaller, workspaces: { id: string; name: string }[]): void;
+  initiatives?: ControlInitiatives;
+};
+
+export class WorkspaceControlService {
+  constructor(private readonly deps: WorkspaceControlDeps) {}
+
+  listProjects(): Promise<ControlProject[]> {
+    return this.deps.listProjects();
+  }
+
+  async listWorkspaces(filter: {
+    projectId?: string;
+    includeArchived?: boolean;
+  }): Promise<ControlWorkspace[]> {
+    const rows = await this.deps.listWorkspaces({
+      projectId: filter.projectId,
+      includeArchived: filter.includeArchived ?? false,
+    });
+    return Promise.all(
+      rows.map(async (row) => ({
+        ...row,
+        pullRequest: row.branch
+          ? await this.deps.pullRequestForBranch(row.projectId, row.branch).catch(() => null)
+          : null,
+      }))
+    );
+  }
+
+  async currentWorkspace(
+    caller: ControlCaller
+  ): Promise<(ControlWorkspace & { initiative: Initiative | null }) | null> {
+    const taskId = await this.callerTaskId(caller);
+    if (!taskId) return null;
+    const all = await this.listWorkspaces({ includeArchived: true });
+    const workspace = all.find((candidate) => candidate.id === taskId);
+    if (!workspace) return null;
+    const initiative = workspace.initiativeId
+      ? ((await this.deps.initiatives?.get(workspace.initiativeId)) ?? null)
+      : null;
+    return { ...workspace, initiative };
+  }
+
+  /** Archives workspaces (reversible); never the caller's own. */
+  async archiveWorkspaces(
+    caller: ControlCaller,
+    workspaceIds: string[]
+  ): Promise<{ archived: string[]; skipped: { id: string; reason: string }[] }> {
+    const context = caller.conversationId
+      ? await this.deps.callerContext(caller.conversationId)
+      : null;
+    const byId = new Map(
+      (await this.deps.listWorkspaces({ includeArchived: true })).map((w) => [w.id, w])
+    );
+    const archived: { id: string; name: string }[] = [];
+    const skipped: { id: string; reason: string }[] = [];
+    for (const id of new Set(workspaceIds)) {
+      const workspace = byId.get(id);
+      if (!workspace) skipped.push({ id, reason: 'not found' });
+      else if (id === context?.taskId) skipped.push({ id, reason: 'is the calling workspace' });
+      else if (workspace.archived) skipped.push({ id, reason: 'already archived' });
+      else {
+        await this.deps.archiveWorkspace(workspace.projectId, id);
+        archived.push({ id, name: workspace.name });
+      }
+    }
+    if (archived.length > 0) this.deps.onArchived?.(caller, archived);
+    return { archived: archived.map((workspace) => workspace.id), skipped };
+  }
+
+  async createWorkspace(caller: ControlCaller, input: CreateWorkspaceInput) {
+    const context = caller.conversationId
+      ? await this.deps.callerContext(caller.conversationId)
+      : null;
+    const created = await this.deps.createWorkspace({
+      ...input,
+      provider: input.provider ?? context?.provider,
+    });
+    if (input.initiativeId) {
+      const initiatives = this.requireInitiatives();
+      await initiatives.setTaskInitiative([created.id], input.initiativeId);
+      await initiatives.post({
+        initiativeId: input.initiativeId,
+        fromTaskId: context?.taskId ?? null,
+        kind: 'event',
+        body: `Workspace "${created.name}" was created${input.prompt ? ' and given a first task' : ''}.`,
+      });
+    }
+    return created;
+  }
+
+  // ── Initiatives ────────────────────────────────────────────────────────────
+
+  listInitiatives(): Promise<Initiative[]> {
+    return this.requireInitiatives().list();
+  }
+
+  /** Creates an initiative holding the given workspaces, plus the caller's unless excluded. */
+  async createInitiative(
+    caller: ControlCaller,
+    input: { name: string; workspaceIds?: string[]; includeCallingWorkspace?: boolean }
+  ): Promise<Initiative> {
+    const initiatives = this.requireInitiatives();
+    const initiative = await initiatives.create(input.name);
+    const taskId = await this.callerTaskId(caller);
+    const members = [
+      ...(input.includeCallingWorkspace !== false && taskId ? [taskId] : []),
+      ...(input.workspaceIds ?? []),
+    ];
+    if (members.length > 0)
+      await initiatives.setTaskInitiative([...new Set(members)], initiative.id);
+    return (await initiatives.get(initiative.id)) ?? initiative;
+  }
+
+  async addToInitiative(input: { initiativeId: string; workspaceIds: string[] }) {
+    await this.requireInitiatives().setTaskInitiative(input.workspaceIds, input.initiativeId);
+    return this.requireInitiatives().get(input.initiativeId);
+  }
+
+  async removeFromInitiative(input: { workspaceIds: string[] }) {
+    await this.requireInitiatives().setTaskInitiative(input.workspaceIds, null);
+    return { removed: input.workspaceIds };
+  }
+
+  /** Posts to the caller's initiative (or the given one), to everyone or one workspace. */
+  async postMessage(
+    caller: ControlCaller,
+    input: { text: string; toWorkspaceId?: string; initiativeId?: string }
+  ): Promise<InitiativeMessage> {
+    const { initiativeId, taskId } = await this.messagingScope(caller, input.initiativeId);
+    return this.requireInitiatives().post({
+      initiativeId,
+      fromTaskId: taskId,
+      toTaskId: input.toWorkspaceId ?? null,
+      body: input.text,
+    });
+  }
+
+  /** Messages for the caller: to it or everyone, not its own; only newer than `afterId`. */
+  async readMessages(
+    caller: ControlCaller,
+    input: { initiativeId?: string; afterId?: string }
+  ): Promise<InitiativeMessage[]> {
+    const { initiativeId, taskId } = await this.messagingScope(caller, input.initiativeId);
+    return this.requireInitiatives().messages({
+      initiativeId,
+      forTaskId: taskId ?? undefined,
+      afterId: input.afterId,
+    });
+  }
+
+  async waitForMessages(
+    caller: ControlCaller,
+    input: { initiativeId?: string; afterId?: string; timeoutSeconds?: number }
+  ): Promise<InitiativeMessage[]> {
+    const { initiativeId, taskId } = await this.messagingScope(caller, input.initiativeId);
+    const seconds = Math.min(Math.max(input.timeoutSeconds ?? 60, 1), MAX_WAIT_SECONDS);
+    return this.requireInitiatives().waitForMessages(
+      { initiativeId, forTaskId: taskId ?? undefined, afterId: input.afterId },
+      seconds * 1000
+    );
+  }
+
+  private async callerTaskId(caller: ControlCaller): Promise<string | null> {
+    if (!caller.conversationId) return null;
+    return (await this.deps.callerContext(caller.conversationId))?.taskId ?? null;
+  }
+
+  private async messagingScope(caller: ControlCaller, initiativeId: string | undefined) {
+    const taskId = await this.callerTaskId(caller);
+    const resolved =
+      initiativeId ??
+      (taskId ? (await this.requireInitiatives().initiativeOfTask(taskId))?.id : undefined);
+    if (!resolved) {
+      throw new Error(
+        taskId
+          ? 'This workspace is not in an initiative; create or join one first.'
+          : 'Pass an initiativeId.'
+      );
+    }
+    return { initiativeId: resolved, taskId };
+  }
+
+  private requireInitiatives(): ControlInitiatives {
+    if (!this.deps.initiatives) throw new Error('Initiatives are not available.');
+    return this.deps.initiatives;
+  }
+}

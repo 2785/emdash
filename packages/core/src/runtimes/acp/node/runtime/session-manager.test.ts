@@ -27,6 +27,44 @@ async function launchHarness(conversationId = 'conv-1') {
   return { h, rt, client: h.client(), sessionId: 'session-1', conversationId };
 }
 describe('AcpRuntime session manager', () => {
+  it("adds the host's per-conversation MCP servers to the provider's own", async () => {
+    const agent = new FakeAcpAgent();
+    agent.initialize.mockResolvedValue({
+      protocolVersion: 1,
+      agentCapabilities: { loadSession: true, mcpCapabilities: { http: true } },
+    });
+    const sessionMcpServers = vi.fn(async (conversationId: string) => [
+      {
+        name: 'emjosh',
+        transport: 'http' as const,
+        url: 'http://127.0.0.1:1234/mcp',
+        headers: { 'x-emjosh-conversation': conversationId },
+      },
+    ]);
+    const h = makeAcpHarness({
+      acpBehavior: {
+        buildSpawn: () => ({ command: '/fake/node', args: ['agent.js'], env: {} }),
+        connect: agent.behavior.connect,
+      },
+      sessionMcpServers,
+    });
+    vi.spyOn(h.deps.agentHost, 'readMcpServers').mockResolvedValueOnce(
+      ok([{ name: 'docs', command: 'docs-mcp' }])
+    );
+    const rt = new AcpRuntime(h.deps);
+
+    await rt.startSession(makeStartInput({ conversationId: 'conv-control' }), 'fresh');
+
+    expect(sessionMcpServers).toHaveBeenCalledWith('conv-control');
+    const request = agent.newSession.mock.calls[0]?.[0] as { mcpServers: { name: string }[] };
+    expect(request.mcpServers.map((server) => server.name)).toEqual(['docs', 'emjosh']);
+    expect(request.mcpServers[1]).toMatchObject({
+      type: 'http',
+      url: 'http://127.0.0.1:1234/mcp',
+      headers: [{ name: 'x-emjosh-conversation', value: 'conv-control' }],
+    });
+  });
+
   it('publishes adapter startup diagnostics through MCP live state without starting a turn', async () => {
     const agent = new FakeAcpAgent();
     const h = makeAcpHarness({

@@ -38,6 +38,7 @@ import {
   type Command,
   type DomainEvent,
   type Effect,
+  mergeQueuedPrompts,
   SessionMachine,
   type SessionMachineContext,
 } from '#runtimes/acp/node/machine/machine';
@@ -280,6 +281,13 @@ export class SessionCell {
     acceptance?: PromptAcceptance
   ): Promise<Result<SessionPromptResult, AcpSendPromptError>> {
     if (!this.machine.isBusy) return this.prompt(input, acceptance);
+    if (
+      this.deps.supportsSteering &&
+      this.machine.phase.kind === 'working' &&
+      (await this.steer(input, acceptance))
+    ) {
+      return ok({ queued: false });
+    }
     const alreadyCancelling = this.machine.phase.kind === 'cancelling';
     const now = Date.now();
     const dispatched = this.dispatchFor<InvalidStateError>(
@@ -308,6 +316,69 @@ export class SessionCell {
       }
     }
     return ok({ queued: true });
+  }
+
+  /**
+   * Hands the queue plus `input` to the agent inside its running turn, so it decides what to
+   * stop, redirect, or let finish instead of everything being cancelled. Returns false (with
+   * nothing changed) when the agent doesn't take it, e.g. its turn has just ended.
+   */
+  private async steer(input: PromptInput, acceptance?: PromptAcceptance): Promise<boolean> {
+    const extMethod = this.deps.agent.extMethod?.bind(this.deps.agent);
+    if (!extMethod) return false;
+    const now = Date.now();
+    const id = acceptance?.id ?? crypto.randomUUID();
+    const queued = this.machine.queuedPrompts;
+    const prompt = mergeQueuedPrompts([
+      ...queued,
+      { id, ...input, createdAt: now, updatedAt: now },
+    ]);
+    let content;
+    try {
+      const resolved = await Promise.all(
+        (prompt.attachments ?? []).map((attachment) =>
+          this.deps.resolveAttachment(this.deps.conversationId, attachment)
+        )
+      );
+      content = promptContent(prompt, resolved);
+      const response = await extMethod('_session/steering', {
+        sessionId: this.acpSessionId,
+        prompt: content,
+        _meta: { steering: { idleBehavior: 'promptRequired' } },
+      });
+      if (response.outcome !== 'injected') return false;
+    } catch (error) {
+      this.deps.logger.warn('SessionCell: steering failed; falling back to interrupt', {
+        conversationId: this.conversationId,
+        error,
+      });
+      return false;
+    }
+    this.rawLog.record({ kind: 'prompt', sessionId: this.acpSessionId, content });
+    for (const queuedPrompt of queued) {
+      this.dispatchFor<InvalidStateError>({ type: 'RemoveQueuedPrompt', id: queuedPrompt.id }, [
+        'invalid_state',
+      ]);
+    }
+    this.transcript.pushEvent({
+      kind: 'message',
+      role: 'user',
+      messageId: `${this.conversationId}-steer-${id}`,
+      promptId: id,
+      text: prompt.text,
+      ...(prompt.attachments?.length
+        ? {
+            attachments: prompt.attachments.map((attachment, index) => ({
+              id: attachment.id,
+              name: attachment.name ?? `image-${index + 1}`,
+              mimeType: attachment.mimeType,
+            })),
+          }
+        : {}),
+    });
+    this.emitTranscriptChanged();
+    acceptance?.onAccepted({ queued: false });
+    return true;
   }
 
   queuePrompt(
@@ -594,17 +665,7 @@ export class SessionCell {
         ));
       const promptRequest = {
         sessionId: this.acpSessionId,
-        prompt: [
-          ...resolvedAttachments.map((attachment) => ({
-            type: 'image' as const,
-            data: attachment.data,
-            mimeType: attachment.mimeType,
-          })),
-          ...(prompt.text ? [{ type: 'text' as const, text: prompt.text }] : []),
-          ...(prompt.hiddenContext
-            ? [{ type: 'text' as const, text: wrapHiddenContext(prompt.hiddenContext) }]
-            : []),
-        ],
+        prompt: promptContent(prompt, resolvedAttachments),
       };
       this.rawLog.record({
         kind: 'prompt',
@@ -828,3 +889,39 @@ function toStopReason(reason: TranscriptTurnOutcome['reason']): StopReason {
 }
 
 export { SESSION_PLAN_ID };
+
+type ResolvedImage = { data: string; mimeType: string };
+
+/**
+ * Image blocks for a prompt. An image the text refers to by its label (an attachment named
+ * "Image 1" referenced as "[Image 1]") is preceded by that label, so the agent can tell which
+ * image the text means. Labels are hidden-context blocks, which transcripts drop on replay.
+ */
+export function promptImageBlocks(
+  text: string | undefined,
+  attachments: readonly { name?: string }[],
+  resolved: readonly ResolvedImage[]
+) {
+  return resolved.flatMap((image, index) => {
+    const name = attachments[index]?.name;
+    const label = name && text?.includes(`[${name}]`) ? `[${name}]` : null;
+    return [
+      ...(label ? [{ type: 'text' as const, text: wrapHiddenContext(label) }] : []),
+      { type: 'image' as const, data: image.data, mimeType: image.mimeType },
+    ];
+  });
+}
+
+/** ACP prompt content for a prompt: labelled images, its text, then any hidden context. */
+function promptContent(
+  prompt: Pick<QueuedPrompt, 'text' | 'attachments' | 'hiddenContext'>,
+  resolved: readonly ResolvedImage[]
+) {
+  return [
+    ...promptImageBlocks(prompt.text, prompt.attachments ?? [], resolved),
+    ...(prompt.text ? [{ type: 'text' as const, text: prompt.text }] : []),
+    ...(prompt.hiddenContext
+      ? [{ type: 'text' as const, text: wrapHiddenContext(prompt.hiddenContext) }]
+      : []),
+  ];
+}

@@ -20,6 +20,8 @@ export interface TuiAgentsRuntimeDeps {
   /** Returns a session's Git credential channel to the desktop once no session holds it. */
   releaseGitCredentialChannel?: ReleaseGitCredentialChannel;
   intents: SessionIntentStore;
+  /** Extra CLI arguments for one conversation's agent launch (e.g. host MCP servers). */
+  sessionExtraArgs?: (providerId: string, conversationId: string) => Promise<readonly string[]>;
   /** Lifecycle reports into the conversation index (spec §3.3); defaults to a no-op. */
   conversationReports?: ConversationLifecycleReporter;
   log?: LiveLogSourceOptions;

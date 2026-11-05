@@ -8,6 +8,7 @@ import { devPerfContract, devPerfDomain } from '@core/features/dev-perf/api';
 import { editorContract, editorDomain } from '@core/features/editor/api';
 import { filesDomain, filesWireContract } from '@core/features/files/api';
 import { githubContract, githubDomain } from '@core/features/github/api';
+import { initiativesContract, initiativesDomain } from '@core/features/initiatives/api';
 import { integrationsContract, integrationsDomain } from '@core/features/integrations/api';
 import { issuesContract, issuesDomain } from '@core/features/issues/api';
 import { legacyPortContract, legacyPortDomain } from '@core/features/legacy-port/api';
@@ -24,6 +25,10 @@ import { tasksDomain, tasksWireContract } from '@core/features/tasks/api';
 import { terminalsContract, terminalsDomain } from '@core/features/terminals/api';
 import { updatesContract, updatesDomain } from '@core/features/updates/api';
 import { usageContract, usageDomain } from '@core/features/usage/api/contract';
+import {
+  workspaceControlContract,
+  workspaceControlDomain,
+} from '@core/features/workspace-control/api';
 import {
   lifecycleScriptsDomain,
   lifecycleScriptsWireContract,
@@ -89,5 +94,7 @@ export const desktopDomainContracts = {
   [hostsDomain]: hostsContract,
   [tasksDomain]: tasksWireContract,
   [updatesDomain]: updatesContract,
+  [initiativesDomain]: initiativesContract,
+  [workspaceControlDomain]: workspaceControlContract,
   [desktopHostDomain]: desktopHostContract,
 } as const;

@@ -1,6 +1,7 @@
 import { PageLayout, SettingsSection } from '@emdash/ui/react/patterns';
 import { IS_PERSONAL } from '@core/primitives/app-identity/api/app-identity';
 import { AccountTab } from '../components/AccountTab';
+import { AgentConnectionRow } from '../components/AgentConnectionRow';
 import { FollowUpModeRow } from '../components/FollowUpModeRow';
 import NotificationSettingsCard from '../components/NotificationSettingsCard';
 import {
@@ -22,7 +23,11 @@ export function GeneralSettingsPage() {
         sticky
         draggable
         title="General"
-        description="Manage your account, app updates, and task preferences."
+        description={
+          IS_PERSONAL
+            ? 'Manage notifications and task preferences.'
+            : 'Manage your account, app updates, and task preferences.'
+        }
       />
       {/* Emjosh has no Emdash account, telemetry, or official updates. */}
       {!IS_PERSONAL && (
@@ -48,6 +53,7 @@ export function GeneralSettingsPage() {
         <IncludeIssueContextByDefaultRow />
         <EnableTmuxRow />
         <FollowUpModeRow />
+        <AgentConnectionRow />
       </SettingsSection>
     </div>
   );

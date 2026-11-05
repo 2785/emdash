@@ -14,7 +14,7 @@ export const FollowUpModeRow: React.FC = () => {
   return (
     <SettingRow
       title="Messages sent while agent is working"
-      description="Queue them until the current turn ends, or stop the turn and send them right away, combined with anything already queued into one message. Applies to chat conversations."
+      description="Queue them until the current turn ends, or interrupt: the running agent gets your message right away, merged with anything queued, and decides what to stop or let finish. Agents that can't take messages mid-turn stop and run it next. Applies to chat conversations."
       control={
         <>
           <ResetToDefaultButton

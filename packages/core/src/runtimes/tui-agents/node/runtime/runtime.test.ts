@@ -37,6 +37,7 @@ function createRuntime(
     hooks?: ResolvedTuiProvider['hooks'];
     trustWorkspace?: ITrustBehavior['trustWorkspace'];
     spillPrompt?: (prompt: string) => Promise<PromptSpillResult>;
+    sessionExtraArgs?: ConstructorParameters<typeof TuiAgentsRuntime>[0]['sessionExtraArgs'];
     platform?: NodeJS.Platform;
     userEnv?: NodeJS.ProcessEnv;
     commandEnv?: Record<string, string>;
@@ -93,6 +94,7 @@ function createRuntime(
     platform: options.platform,
     lifecycle: options.lifecycle,
     spillPrompt: options.spillPrompt,
+    sessionExtraArgs: options.sessionExtraArgs,
     releaseGitCredentialChannel: options.releaseGitCredentialChannel,
     logger: noopLogger,
   });
@@ -555,6 +557,19 @@ describe('TuiAgentsRuntime', () => {
     expect(peek(runtime.sessionsLiveModel.get(undefined)!.states.list)).toMatchObject({
       'conversation-1': { status: 'exited' },
     });
+  });
+
+  it('appends host-provided arguments for the conversation to the launch', async () => {
+    const sessionExtraArgs = vi.fn(async () => ['--mcp-config', '{"mcpServers":{}}']);
+    const { runtime, agentHost } = createRuntime({ sessionExtraArgs });
+
+    await runtime.startSession(startInput({ extraArgs: ['--verbose'] }));
+
+    expect(sessionExtraArgs).toHaveBeenCalledWith('test', 'conversation-1');
+    expect(agentHost.buildPromptCommand).toHaveBeenCalledWith(
+      'test',
+      expect.objectContaining({ extraArgs: ['--verbose', '--mcp-config', '{"mcpServers":{}}'] })
+    );
   });
 
   it('spills large prompts inside the Host runtime and cleans them when stopped', async () => {
