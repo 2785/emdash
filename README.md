@@ -56,7 +56,8 @@ problems to them.
 - **Workspaces name themselves.** Agents name their workspace once, as soon as they know what
   it's for, and keep that name through follow-ups (renaming only if you ask or the work turns
   into something unrelated). A workspace still on its placeholder name takes its first
-  conversation's title; names you chose are never touched.
+  conversation's title; names you chose are never touched. Names are plain text ("Synctera
+  tenant 1_1 AR/AP"), not branch-style slugs: the branch is fixed when a workspace is created.
 - **More reliable agent status.** Fewer conversations stuck spinning or wrongly flagged as
   waiting for you (after reopening a chat, a restart, or an interrupted turn).
 

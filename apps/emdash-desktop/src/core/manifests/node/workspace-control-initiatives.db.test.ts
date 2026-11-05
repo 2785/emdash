@@ -39,7 +39,6 @@ describe('workspace control initiatives and messages', () => {
           : null,
       archiveWorkspace: async () => {},
       renameWorkspace: async () => {},
-      preserveNameCapitalization: async () => false,
       createWorkspace: vi.fn(async () => ({ id: 'peer', name: 'peer', branch: 'peer' })),
       initiatives,
     });

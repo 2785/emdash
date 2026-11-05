@@ -40,7 +40,6 @@ describe('control MCP endpoint', () => {
       callerContext,
       archiveWorkspace: async () => {},
       renameWorkspace: async () => {},
-      preserveNameCapitalization: async () => false,
       createWorkspace: async () => ({ id: 'x', name: 'x', branch: 'x' }),
     });
     endpoint = await startControlMcpEndpoint({

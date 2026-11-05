@@ -1,12 +1,10 @@
 import { Button, Dialog, Field, Input } from '@emdash/ui/react/primitives';
 import { observer } from 'mobx-react-lite';
 import { useCallback, useState } from 'react';
-import { useTaskSettings } from '@core/features/tasks/api/browser/hooks/useTaskSettings';
 import { getTaskManagerStore } from '@core/features/tasks/api/browser/task-state/task-selectors';
 import {
-  liveTransformTaskName,
+  formatTaskDisplayName,
   MAX_TASK_NAME_LENGTH,
-  normalizeTaskName,
   taskNameCollisionKey,
 } from '@core/features/tasks/api/task-names';
 import { useModalController } from '@core/manifests/browser/modal-api';
@@ -28,7 +26,6 @@ export const RenameTaskModal = observer(function RenameTaskModal({
   const [name, setName] = useState(currentName);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { preserveNameCapitalization } = useTaskSettings();
 
   const taskManager = getTaskManagerStore(projectId);
   const siblingNames = new Set(
@@ -37,12 +34,11 @@ export const RenameTaskModal = observer(function RenameTaskModal({
       .map((t) => taskNameCollisionKey(t.data.name))
   );
 
-  const normalizedName = normalizeTaskName(name, {
-    preserveCapitalization: preserveNameCapitalization,
-  });
+  // The branch was fixed at creation, so the name is free text.
+  const normalizedName = formatTaskDisplayName(name);
   const isDuplicate = siblingNames.has(taskNameCollisionKey(normalizedName));
   const isUnchanged = normalizedName === currentName;
-  const isEmpty = normalizedName.length === 0;
+  const isEmpty = taskNameCollisionKey(normalizedName).length === 0;
   const isValid = !isEmpty && !isDuplicate && !isUnchanged;
 
   const validationMessage = isDuplicate
@@ -51,17 +47,10 @@ export const RenameTaskModal = observer(function RenameTaskModal({
       ? 'Task name cannot be empty.'
       : undefined;
 
-  const handleNameChange = useCallback(
-    (value: string) => {
-      setName(
-        liveTransformTaskName(value, {
-          preserveCapitalization: preserveNameCapitalization,
-        })
-      );
-      setError(null);
-    },
-    [preserveNameCapitalization]
-  );
+  const handleNameChange = useCallback((value: string) => {
+    setName(value);
+    setError(null);
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!isValid) return;
