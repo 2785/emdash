@@ -16,7 +16,7 @@ const SidebarMetadataSettingsCard: React.FC = () => {
   } = useAppSettingsKey('interface');
 
   const busy = isLoading || isSaving;
-  const showLineChanges = interfaceSettings?.showLeftSidebarLineChanges ?? true;
+  const showLineChanges = interfaceSettings?.showLeftSidebarLineChanges ?? false;
   const showPrStatus = interfaceSettings?.showLeftSidebarPrStatus ?? true;
   const showTimestamps = interfaceSettings?.showLeftSidebarTimestamps ?? true;
 

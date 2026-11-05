@@ -114,6 +114,8 @@ vi.mock('@core/primitives/keybindings/browser/shortcut', () => ({ BoundShortcut:
 vi.mock('@emdash/ui/react/primitives', () => ({
   Button: mocks.button,
   Checkbox: () => null,
+  // The sidebar row adds an "Initiative…" item to the task context menu.
+  ContextMenu: { Item: ({ children }: { children: ReactNode }) => children },
   RelativeTime: () => null,
   ToggleGroup: {},
   toast: { error: vi.fn() },

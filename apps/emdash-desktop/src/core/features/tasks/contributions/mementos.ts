@@ -335,3 +335,20 @@ export const taskPaneLayoutMemento = defineMemento({
     activeGroupId: 'default',
   },
 });
+
+const taskActivityDismissalV1Schema = z.object({
+  version: z.literal('1'),
+  /** When the user dismissed the Activity badge; steps finishing later bring it back. */
+  dismissedAt: z.number().optional(),
+});
+
+export const taskActivityDismissalSchema = defineVersionedSchema()
+  .initial('1', taskActivityDismissalV1Schema)
+  .build();
+
+export const taskActivityDismissalMemento = defineMemento({
+  id: 'tasks.activity-dismissal',
+  subject: taskSubject,
+  schema: taskActivityDismissalSchema,
+  default: { version: '1' as const },
+});

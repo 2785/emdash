@@ -45,6 +45,7 @@ export type ControlInitiatives = {
   list(): Promise<Initiative[]>;
   get(id: string): Promise<Initiative | null>;
   create(name: string): Promise<Initiative>;
+  update(id: string, changes: { pushMessages?: boolean }): Promise<void>;
   setTaskInitiative(taskIds: string[], initiativeId: string | null): Promise<void>;
   initiativeOfTask(taskId: string): Promise<Initiative | null>;
   post(input: {
@@ -214,10 +215,18 @@ export class WorkspaceControlService {
   /** Creates an initiative holding the given workspaces, plus the caller's unless excluded. */
   async createInitiative(
     caller: ControlCaller,
-    input: { name: string; workspaceIds?: string[]; includeCallingWorkspace?: boolean }
+    input: {
+      name: string;
+      workspaceIds?: string[];
+      includeCallingWorkspace?: boolean;
+      pushMessages?: boolean;
+    }
   ): Promise<Initiative> {
     const initiatives = this.requireInitiatives();
     const initiative = await initiatives.create(input.name);
+    // An agent creates an initiative to coordinate, which needs messages to reach the others'
+    // chats; without delivery they only see messages they go looking for.
+    await initiatives.update(initiative.id, { pushMessages: input.pushMessages ?? true });
     const taskId = await this.callerTaskId(caller);
     const members = [
       ...(input.includeCallingWorkspace !== false && taskId ? [taskId] : []),
@@ -250,6 +259,19 @@ export class WorkspaceControlService {
       toTaskId: input.toWorkspaceId ?? null,
       body: input.text,
     });
+  }
+
+  /** Turns delivery of the initiative's messages into its workspaces' chats on or off. */
+  async setMessageDelivery(
+    caller: ControlCaller,
+    input: { enabled: boolean; initiativeId?: string }
+  ): Promise<Initiative> {
+    const { initiativeId } = await this.messagingScope(caller, input.initiativeId);
+    const initiatives = this.requireInitiatives();
+    await initiatives.update(initiativeId, { pushMessages: input.enabled });
+    const initiative = await initiatives.get(initiativeId);
+    if (!initiative) throw new Error(`Initiative '${initiativeId}' was not found.`);
+    return initiative;
   }
 
   /** Messages for the caller: to it or everyone, not its own; only newer than `afterId`. */

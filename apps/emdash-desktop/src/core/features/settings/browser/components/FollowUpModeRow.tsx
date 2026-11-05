@@ -9,7 +9,7 @@ type FollowUpMode = 'queue' | 'interrupt';
 export const FollowUpModeRow: React.FC = () => {
   const { value, defaults, isOverridden, isLoading, isSaving, update, reset } =
     useAppSettingsKey('followUpMode');
-  const mode = value ?? defaults ?? 'queue';
+  const mode = value ?? defaults ?? 'interrupt';
 
   return (
     <SettingRow
@@ -19,7 +19,7 @@ export const FollowUpModeRow: React.FC = () => {
         <>
           <ResetToDefaultButton
             visible={isOverridden}
-            defaultLabel="queue"
+            defaultLabel="steer"
             onReset={() => reset()}
             disabled={isLoading || isSaving}
           />

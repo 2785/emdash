@@ -59,7 +59,8 @@ function createAppDb(): Database.Database {
       workspace_id TEXT,
       type TEXT NOT NULL DEFAULT 'task',
       automation_run_id TEXT,
-      deleted_at TEXT
+      deleted_at TEXT,
+      initiative_id TEXT
     );
 
     CREATE TABLE workspaces (

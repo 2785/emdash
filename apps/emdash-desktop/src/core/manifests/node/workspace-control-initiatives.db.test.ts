@@ -65,6 +65,16 @@ describe('workspace control initiatives and messages', () => {
     expect(await service.readMessages(peer, { afterId: received[0]!.id })).toEqual([]);
   });
 
+  it('delivers messages into chats for initiatives agents create, unless asked not to', async () => {
+    expect((await service.createInitiative(lead, { name: 'Accounts v2' })).pushMessages).toBe(true);
+    const quiet = await service.createInitiative(peer, { name: 'Quiet', pushMessages: false });
+    expect(quiet.pushMessages).toBe(false);
+
+    // The caller's initiative by default.
+    expect((await service.setMessageDelivery(peer, { enabled: true })).pushMessages).toBe(true);
+    expect((await initiatives.get(quiet.id))?.pushMessages).toBe(true);
+  });
+
   it('records new workspaces in the initiative feed', async () => {
     const initiative = await service.createInitiative(lead, { name: 'Accounts v2' });
 

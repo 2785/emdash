@@ -88,14 +88,12 @@ describe('SettingsStore contributions', () => {
     expect(await new SettingsStore(db, appSettingsContributions).get('frameTint')).toBe('green');
   });
 
-  it('defaults chat follow-ups to queueing and persists interrupt mode', async () => {
+  it('defaults chat follow-ups to steering (interrupt) and persists queue mode', async () => {
     rows.clear();
     const settings = new SettingsStore(db, appSettingsContributions);
-    expect(await settings.get('followUpMode')).toBe('queue');
-    await settings.update('followUpMode', 'interrupt');
-    expect(await new SettingsStore(db, appSettingsContributions).get('followUpMode')).toBe(
-      'interrupt'
-    );
+    expect(await settings.get('followUpMode')).toBe('interrupt');
+    await settings.update('followUpMode', 'queue');
+    expect(await new SettingsStore(db, appSettingsContributions).get('followUpMode')).toBe('queue');
   });
 
   it('applies tray visibility immediately through Wire updates and resets', async () => {

@@ -30,8 +30,9 @@ problems to them.
   agents create and fill them.
 - **Workspaces talking to each other.** Each initiative has a message feed: agents post to
   everyone or one workspace and read or wait for replies; Emjosh adds events (a workspace
-  finished, needs approval, failed). Optionally, messages are delivered straight into each
-  workspace's chat, labelled as coming from a peer.
+  finished, needs approval, failed). Messages can be delivered straight into each workspace's
+  chat, labelled as coming from a peer: on for initiatives agents create, and a toggle in the
+  initiative's menu.
 - **External agents.** Settings → General → *Connect an external agent* copies a
   `claude mcp add` command so a `claude` outside Emjosh can use the same tools while Emjosh
   is open.
@@ -39,9 +40,9 @@ problems to them.
 ### Chat
 
 - **Steer the agent mid-turn.** Settings → General → *Messages sent while agent is working*:
-  *Queue* (Emdash's behavior) or *Steer*, which hands your message (merged with anything
-  queued) to the running agent right away, so it adjusts course without stopping. Agents that
-  can't take messages mid-turn stop and run it next.
+  *Steer* (the default) hands your message (merged with anything queued) to the running agent
+  right away, so it adjusts course without stopping; *Queue* (Emdash's behavior) waits for the
+  turn to end. Agents that can't take messages mid-turn stop and run it next.
 - **Inline attachment references.** Pasted or dropped images get an `[Image 1]` pill where
   your cursor is, and the agent sees which image is which; long pasted text collapses into a
   `[Snippet 1]` pill that still sends the full text in place.

@@ -16,5 +16,5 @@ export const preferredConversationTypeSettingsContribution = defineSettingsContr
 export const followUpModeSettingsContribution = defineSettingsContribution({
   key: 'followUpMode',
   schema: z.enum(['queue', 'interrupt']),
-  defaults: 'queue' as const,
+  defaults: 'interrupt' as const,
 });

@@ -254,7 +254,13 @@ export const SidebarVirtualList = observer(function SidebarVirtualList() {
                   <SidebarTaskItem
                     projectId={row.projectId}
                     taskId={row.taskId}
-                    rowVariant={flat ? 'flat' : 'underProject'}
+                    rowVariant={
+                      !flat
+                        ? 'underProject'
+                        : getSidebarStore().groupBy === 'initiative'
+                          ? 'underInitiative'
+                          : 'flat'
+                    }
                   />
                 </SortableRow>
               );
