@@ -93,9 +93,7 @@ describe('SettingsStore contributions', () => {
     const settings = new SettingsStore(db, appSettingsContributions);
     expect(await settings.get('followUpMode')).toBe('interrupt');
     await settings.update('followUpMode', 'queue');
-    expect(await new SettingsStore(db, appSettingsContributions).get('followUpMode')).toBe(
-      'queue'
-    );
+    expect(await new SettingsStore(db, appSettingsContributions).get('followUpMode')).toBe('queue');
   });
 
   it('applies tray visibility immediately through Wire updates and resets', async () => {
