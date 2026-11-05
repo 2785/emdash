@@ -18,6 +18,8 @@ export interface NavigationViewDefinition {
 export type SlotsContextValue = {
   WrapView: ComponentType<{ children: ReactNode } & Record<string, unknown>>;
   TitlebarSlot: ComponentType;
+  /** Whether the current view provides its own titlebar. */
+  hasTitlebar: boolean;
   MainPanel: ComponentType;
   currentView: string;
 };
@@ -48,6 +50,7 @@ export function useWorkspaceSlots(): SlotsContextValue {
     return {
       WrapView: slots.wrap ?? Fragment,
       TitlebarSlot: slots.titlebar ?? EmptyTitlebar,
+      hasTitlebar: slots.titlebar !== undefined,
       MainPanel: slots.main,
       currentView: contribution.def.id,
     };
