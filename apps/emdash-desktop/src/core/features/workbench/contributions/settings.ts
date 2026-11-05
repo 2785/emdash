@@ -8,6 +8,7 @@ import type {
 } from '@core/primitives/app-settings/api';
 import { openInAppIdSchema } from '@core/primitives/open-in-apps/api/open-in-apps';
 import { defineSettingsContribution } from '@core/primitives/settings/api';
+import { FRAME_TINT_IDS, type FrameTint } from '@core/primitives/theme/api/frame-tint';
 
 const keyboardSettingsSchema = z
   .optional(
@@ -70,6 +71,12 @@ export const themeSettingsContribution = defineSettingsContribution<'theme', The
   key: 'theme',
   schema: themeSchema,
   defaults: null,
+});
+
+export const frameTintSettingsContribution = defineSettingsContribution<'frameTint', FrameTint>({
+  key: 'frameTint',
+  schema: z.enum(['none', ...FRAME_TINT_IDS]).catch('none'),
+  defaults: 'none',
 });
 
 export const openInSettingsContribution = defineSettingsContribution<'openIn', OpenInSettings>({

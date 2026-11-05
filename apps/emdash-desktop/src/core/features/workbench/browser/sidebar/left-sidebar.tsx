@@ -13,6 +13,7 @@ import {
   useWorkspaceSlots,
 } from '@core/primitives/navigation/browser/navigation-hooks';
 import { cn } from '@core/primitives/styling/browser/cn';
+import { FRAME_TINTED_CLASS } from '@core/primitives/theme/api/frame-tint';
 import { SidebarPinnedTaskList } from './pinned-task-list';
 import { ProjectsGroupLabel } from './projects-group-label';
 import {
@@ -43,6 +44,7 @@ export const LeftSidebar: React.FC = observer(function LeftSidebar() {
         // Closed = unmounted (store-driven conditional rendering), so the
         // border applies unconditionally.
         'surface-sunken relative flex h-full flex-col border-r border-border bg-(--em-surface) text-foreground-tertiary-muted transition-colors',
+        FRAME_TINTED_CLASS,
         isDragOver && 'bg-accent/10 ring-2 ring-inset ring-accent/50'
       )}
       onDragOver={onDragOver}

@@ -1,5 +1,6 @@
 import { PageLayout, SettingsSection } from '@emdash/ui/react/patterns';
 import FilesSettingsCard from '../components/FilesSettingsCard';
+import FrameTintCard from '../components/FrameTintCard';
 import HiddenToolsSettingsCard from '../components/HiddenToolsSettingsCard';
 import InterfaceSettingsCard from '../components/InterfaceSettingsCard';
 import KeyboardSettingsCard from '../components/KeyboardSettingsCard';
@@ -18,6 +19,13 @@ export function InterfaceSettingsPage() {
       />
       <SettingsSection title="Color mode" bare>
         <ThemeCard />
+      </SettingsSection>
+      <SettingsSection title="Window frame color" bare>
+        <p className="mb-3 text-sm text-foreground-muted">
+          Tints the title bar and sidebar so this window is easy to spot. Each color has a darker
+          variant for dark mode and a brighter one for light mode.
+        </p>
+        <FrameTintCard />
       </SettingsSection>
       <SettingsSection title="Application icon">
         <TrayIconSettingsRow />

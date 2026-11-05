@@ -31,8 +31,9 @@ problems to them.
 
 ## Install (macOS, Apple Silicon)
 
-There are no prebuilt releases; you build it yourself. You need `pnpm` (any version; the repo
-pins its own pnpm and Node) and the Xcode command line tools (`xcode-select --install`).
+There are no prebuilt releases yet; for now you build it yourself. You need `pnpm` (any
+version; the repo pins its own pnpm and Node) and the Xcode command line tools
+(`xcode-select --install`).
 
 ```bash
 git clone https://github.com/2785/emjosh.git

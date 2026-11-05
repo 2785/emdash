@@ -16,6 +16,7 @@ import { changesViewModeSettingsContribution } from '@core/features/source-contr
 import { taskSettingsContribution } from '@core/features/tasks/contributions/settings';
 import { terminalSettingsContribution } from '@core/features/terminals/contributions/settings';
 import {
+  frameTintSettingsContribution,
   interfaceSettingsContribution,
   keyboardSettingsContribution,
   openInSettingsContribution,
@@ -43,6 +44,7 @@ export const appSettingsSchemaContributions = {
   keyboard: keyboardSettingsContribution,
   notifications: notificationSettingsContribution,
   theme: themeSettingsContribution,
+  frameTint: frameTintSettingsContribution,
   openIn: openInSettingsContribution,
   interface: interfaceSettingsContribution,
   terminal: terminalSettingsContribution,
