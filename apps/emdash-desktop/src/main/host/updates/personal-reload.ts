@@ -14,28 +14,34 @@ const POLL_INTERVAL_MS = 3_000;
 const EXIT_WAIT_SECONDS = 120;
 
 /**
- * Runs detached after the app quits: waits for `pid` to exit, swaps the staged bundle in (copy,
- * verify, then replace, so a failed copy leaves the installed app untouched), and reopens the
- * app. Gives up without touching anything if the app is still running after the wait, which is
- * what happens when the user cancels the quit.
+ * Runs detached after the app quits: waits for `pid` to exit, swaps the staged bundle in, and
+ * reopens the app. The swap is two renames on the same volume, so it is near instant and an
+ * interrupted helper can't leave a half-copied app behind; the staged bundle was deep-verified
+ * when it was staged. Gives up without touching anything if the app is still running after the
+ * wait, which is what happens when the user cancels the quit. Every step is logged.
  */
 export const RELOAD_HELPER_SCRIPT = `
 set -u
 pid="$1"; target="$2"; staged="$3"; wait_seconds="$4"
+echo "$(date) waiting for pid $pid to exit"
 for _ in $(seq 1 $((wait_seconds * 2))); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
 if kill -0 "$pid" 2>/dev/null; then echo "$(date) app still running; reload cancelled"; exit 0; fi
+echo "$(date) app exited"
 sleep 1
 if [ -n "$staged" ] && [ -d "$staged" ]; then
-  next="$target.next"
-  rm -rf "$next"
-  if ditto "$staged" "$next" && codesign --verify --deep --strict "$next"; then
-    rm -rf "$target" && mv "$next" "$target" && rm -rf "$(dirname "$staged")"
-    echo "$(date) installed staged build"
-  else
-    rm -rf "$next"
+  previous="$target.previous"
+  rm -rf "$previous"
+  if ! codesign --verify --strict "$staged"; then
     echo "$(date) staged build failed verification; keeping installed app"
+  elif mv "$target" "$previous" && mv "$staged" "$target"; then
+    echo "$(date) installed staged build"
+    rm -rf "$previous" "$(dirname "$staged")"
+  else
+    [ -d "$target" ] || mv "$previous" "$target"
+    echo "$(date) swap failed; kept installed app"
   fi
 fi
+echo "$(date) reopening"
 open "$target"
 `;
 

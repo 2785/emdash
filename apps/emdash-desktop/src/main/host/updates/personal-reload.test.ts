@@ -172,7 +172,7 @@ describe.runIf(process.platform === 'darwin')('reload helper script', () => {
     expect(result.stdout).toContain('installed staged build');
     expect(readFileSync(join(target, 'Contents', 'Resources', 'label'), 'utf8')).toBe('new');
     expect(existsSync(join(root, 'stage', 'staged'))).toBe(false);
-    expect(existsSync(`${target}.next`)).toBe(false);
+    expect(existsSync(`${target}.previous`)).toBe(false);
     expect(result.opened).toBe(target);
   }, 30_000);
 
@@ -183,7 +183,7 @@ describe.runIf(process.platform === 'darwin')('reload helper script', () => {
 
     expect(result.stdout).toContain('keeping installed app');
     expect(readFileSync(join(target, 'Contents', 'Resources', 'label'), 'utf8')).toBe('old');
-    expect(existsSync(`${target}.next`)).toBe(false);
+    expect(existsSync(`${target}.previous`)).toBe(false);
     expect(result.opened).toBe(target);
   }, 30_000);
 
