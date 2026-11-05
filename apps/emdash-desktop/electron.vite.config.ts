@@ -33,18 +33,31 @@ function copyAdapterAssetsPlugin() {
   };
 }
 
-/** Fills `%PRODUCT_NAME%` in index.html with the build flavor's product name. */
+/**
+ * Fills `%PRODUCT_NAME%` in index.html with the build flavor's product name. The personal
+ * build replaces the Emdash logo between the `splash-logo` markers with a text wordmark.
+ */
 function productNameHtmlPlugin(): Plugin {
   let productName = 'Emdash';
+  let personal = false;
   return {
     name: 'product-name-html',
     configResolved(config) {
-      productName = resolveAppIdentity({
+      const identity = resolveAppIdentity({
         dev: config.env.DEV === true,
         build: config.env.VITE_BUILD,
-      }).PRODUCT_NAME;
+      });
+      productName = identity.PRODUCT_NAME;
+      personal = identity.IS_PERSONAL;
     },
-    transformIndexHtml: (html) => html.replaceAll('%PRODUCT_NAME%', productName),
+    transformIndexHtml: (html) => {
+      const named = html.replaceAll('%PRODUCT_NAME%', productName);
+      if (!personal) return named;
+      return named.replace(
+        /<!-- splash-logo -->[\s\S]*?<!-- \/splash-logo -->/,
+        `<div class="boot-splash-wordmark">${productName}</div>`
+      );
+    },
   };
 }
 

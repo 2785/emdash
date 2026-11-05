@@ -58,6 +58,13 @@
         fill: var(--boot-splash-fg, #202020);
         opacity: 0.9;
       }
+      #boot-splash .boot-splash-wordmark {
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1;
+        opacity: 0.9;
+      }
       #boot-splash .boot-splash-progress {
         position: relative;
         width: 132px;
@@ -140,6 +147,7 @@
   </head>
   <body>
     <div id="boot-splash">
+      <!-- splash-logo -->
       <svg class="boot-splash-logo" viewBox="0 0 499 70" xmlns="http://www.w3.org/2000/svg">
         <path
           d="M127.327 69.301V0.16436H177.169V11.8583H141.284V27.1862H177.169V38.8365H141.284V57.6507H177.169V69.301H127.327Z"
@@ -161,6 +169,7 @@
         />
         <path d="M23.235 23.2454H103.519L80.2841 51.1252H0L23.235 23.2454Z" />
       </svg>
+      <!-- /splash-logo -->
       <div class="boot-splash-progress"></div>
       <div id="boot-splash-escape" hidden>
         <p>%PRODUCT_NAME% is taking longer than expected to start.</p>
