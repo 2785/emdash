@@ -20,8 +20,10 @@ problems to them.
 
 - **Workspace tools for agents.** Every chat agent (and Claude in a terminal) gets an
   `emjosh` MCP server: list projects and workspaces (branch, agent status, PR state),
-  describe its own workspace, create workspaces (a new branch and worktree whose first prompt
-  starts right away), and archive others. Ask things like "archive the workspaces whose PRs
+  describe and rename its own workspace, create workspaces (a new branch and worktree whose
+  first prompt starts right away), and archive others. Agents are told to name their workspace
+  as soon as they know what it's for, and to start workspaces in an initiative for changes that
+  span repositories. Ask things like "archive the workspaces whose PRs
   merged" or "make workspaces in these four repos for the same change".
 - **Initiatives.** Optional groups of workspaces across repositories working towards one goal.
   Group the sidebar by initiative, add tasks from their context menu (*Initiative…*), or let

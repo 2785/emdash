@@ -13,6 +13,14 @@ export const CALLER_CONVERSATION_HEADER = 'x-emjosh-conversation';
 /** Written to the endpoint file so local MCP clients can find and authenticate to Emjosh. */
 export type ControlEndpointInfo = { url: string; token: string };
 
+/** Added to agents' system prompts by MCP clients such as Claude Code. */
+export const CONTROL_MCP_INSTRUCTIONS = `You are running in an Emjosh workspace: a branch and worktree of one repository with its own agent chat. These tools manage workspaces and initiatives (groups of workspaces across repositories working towards one goal).
+
+- Name your workspace. New workspaces get placeholder names such as "dull-geese-try". As soon as you understand the task, call rename_workspace with a short name for the work (for example "remove-sandbox-access-expiry"). Don't wait until you have finished.
+- Changes across repositories: when the work also needs changes in other repositories, don't make them from this workspace. Call current_workspace; if it has no initiative, create one with create_initiative (it includes this workspace). Then, for each other repository (find it with list_projects), call create_workspace with that initiativeId and a self-contained prompt: the goal, that repository's part, and any contract the parts must agree on (API shapes, field names, rollout order). Use post_message and wait_for_messages to coordinate with those workspaces.
+- Keep work that belongs in this repository here; don't create workspaces for it.
+- If current_workspace returns null, you are not running inside an Emjosh workspace, and the points above don't apply.`;
+
 function json(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
 }
@@ -23,7 +31,10 @@ export function buildControlMcpServer(
   caller: ControlCaller,
   version: string
 ): McpServer {
-  const server = new McpServer({ name: 'emjosh', version });
+  const server = new McpServer(
+    { name: 'emjosh', version },
+    { instructions: CONTROL_MCP_INSTRUCTIONS }
+  );
 
   server.registerTool(
     'list_projects',
@@ -55,6 +66,23 @@ export function buildControlMcpServer(
       inputSchema: {},
     },
     async () => json(await service.currentWorkspace(caller))
+  );
+
+  server.registerTool(
+    'rename_workspace',
+    {
+      description:
+        'Rename the workspace this conversation runs in after the work it does. Replaces only ' +
+        'the generated placeholder name unless userRequested is true.',
+      inputSchema: {
+        name: z.string().min(1).describe('Short name for the work, e.g. "fix-login-redirect".'),
+        userRequested: z
+          .boolean()
+          .optional()
+          .describe('True when the user asked for this rename; replaces any name.'),
+      },
+    },
+    async (input) => json(await service.renameWorkspace(caller, input))
   );
 
   server.registerTool(

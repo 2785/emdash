@@ -292,6 +292,14 @@ export async function startWorkspaceControl(
 
     archiveWorkspace: (projectId, taskId) => taskService.archiveTask(projectId, taskId, telemetry),
 
+    async renameWorkspace(projectId, taskId, name) {
+      const result = await taskService.renameTask(projectId, taskId, name);
+      if (!result.success) throw new Error(`Could not rename the workspace: ${result.error.type}`);
+    },
+
+    preserveNameCapitalization: async () =>
+      (await appSettings.get('tasks')).preserveNameCapitalization ?? false,
+
     async createWorkspace(input) {
       const repoPath = await repositoryPath(input.projectId);
       if (!repoPath) throw new Error('Only local projects are supported for now.');

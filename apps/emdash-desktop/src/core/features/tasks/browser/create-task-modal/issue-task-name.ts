@@ -1,4 +1,4 @@
-import { normalizeTaskName } from '@core/features/tasks/api/browser/taskNames';
+import { normalizeTaskName } from '@core/features/tasks/api/task-names';
 import type { LinkedIssue } from '@core/primitives/linked-issues/api';
 
 export function getIssueTaskName(
