@@ -52,15 +52,28 @@ const PersonalReloadButton = observer(function PersonalReloadButton({
     : 'Quit and reopen';
 
   return (
-    <Button
-      variant={staged ? 'primary' : 'ghost'}
-      size="xs"
-      title={title}
-      disabled={update.reloading}
-      onClick={() => void update.reloadPersonalBuild()}
-    >
-      <RotateCw className="size-3" />
-      {staged ? 'Reload · new build' : 'Reload'}
-    </Button>
+    <div className="flex items-center gap-1.5">
+      {/* Also the way to check for updates on Linux, whose frameless window shows no menu bar. */}
+      <button
+        type="button"
+        title="Check for updates"
+        onClick={() => void update.checkPersonalUpdates()}
+        className="rounded-sm px-0.5 hover:text-foreground"
+      >
+        <MicroLabel className="cursor-pointer text-foreground-passive lowercase">
+          v{update.currentVersion}
+        </MicroLabel>
+      </button>
+      <Button
+        variant={staged ? 'primary' : 'ghost'}
+        size="xs"
+        title={title}
+        disabled={update.reloading}
+        onClick={() => void update.reloadPersonalBuild()}
+      >
+        <RotateCw className="size-3" />
+        {staged ? 'Reload · new build' : 'Reload'}
+      </Button>
+    </div>
   );
 });

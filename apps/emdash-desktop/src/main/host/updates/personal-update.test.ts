@@ -113,7 +113,7 @@ describe('releasePlatform', () => {
 describe('PersonalUpdateService', () => {
   it("stages a newer release's build for this platform", async () => {
     const { service, deps } = makeService();
-    await expect(service.check()).resolves.toBe('staged');
+    await expect(service.check()).resolves.toEqual({ status: 'staged', version: '0.2.0' });
     expect(deps.stage).toHaveBeenCalledWith(manifest, macAsset);
 
     const linux = makeService({ platform: 'linux-x64' });
@@ -126,26 +126,29 @@ describe('PersonalUpdateService', () => {
       platform: 'linux-x64',
       fetchManifest: async () => ({ ...manifest, assets: { 'mac-arm64': macAsset } }),
     });
-    await expect(service.check()).resolves.toBe('up-to-date');
+    await expect(service.check()).resolves.toMatchObject({ status: 'up-to-date' });
     expect(deps.stage).not.toHaveBeenCalled();
   });
 
   it('leaves the app alone when the release is not newer', async () => {
     const { service, deps } = makeService({ currentVersion: async () => '0.2.0' });
-    await expect(service.check()).resolves.toBe('up-to-date');
+    await expect(service.check()).resolves.toMatchObject({ status: 'up-to-date' });
     expect(deps.stage).not.toHaveBeenCalled();
   });
 
   it('does not download a release that is already waiting for Reload', async () => {
     const { service, deps } = makeService({ stagedVersion: async () => '0.2.0' });
-    await expect(service.check()).resolves.toBe('already-staged');
+    await expect(service.check()).resolves.toEqual({
+      status: 'already-staged',
+      version: '0.2.0',
+    });
     expect(deps.stage).not.toHaveBeenCalled();
   });
 
   it('treats no release or an invalid manifest as up to date', async () => {
     for (const fetched of [null, { version: '9.9.9' }]) {
       const { service, deps } = makeService({ fetchManifest: async () => fetched });
-      await expect(service.check()).resolves.toBe('up-to-date');
+      await expect(service.check()).resolves.toMatchObject({ status: 'up-to-date' });
       expect(deps.stage).not.toHaveBeenCalled();
     }
   });
@@ -153,9 +156,26 @@ describe('PersonalUpdateService', () => {
   it('does nothing when disabled or on platforms without releases', async () => {
     for (const overrides of [{ enabled: false }, { platform: null }]) {
       const { service, deps } = makeService(overrides);
-      await expect(service.check()).resolves.toBe('disabled');
+      await expect(service.check()).resolves.toEqual({ status: 'disabled' });
       expect(deps.stage).not.toHaveBeenCalled();
     }
+  });
+
+  it('reports the running version when up to date', async () => {
+    const { service } = makeService({ currentVersion: async () => '0.2.0' });
+    await expect(service.check()).resolves.toEqual({ status: 'up-to-date', current: '0.2.0' });
+  });
+
+  it('tells the caller before downloading, and only then', async () => {
+    const onDownloading = vi.fn();
+    const { service } = makeService();
+    await service.check({ onDownloading });
+    expect(onDownloading).toHaveBeenCalledWith('0.2.0');
+
+    const staged = makeService({ stagedVersion: async () => '0.2.0' });
+    const notCalled = vi.fn();
+    await staged.service.check({ onDownloading: notCalled });
+    expect(notCalled).not.toHaveBeenCalled();
   });
 
   it('shares one check between concurrent callers', async () => {

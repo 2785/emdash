@@ -12,8 +12,25 @@ import {
   EMDASH_ISSUES_NEW_URL,
   EMDASH_RELEASES_URL,
 } from '@core/primitives/urls/api/urls';
-import { personalReloadService } from '@main/host/updates/personal-reload-instance';
+import {
+  checkForPersonalUpdates,
+  personalReloadService,
+} from '@main/host/updates/personal-reload-instance';
 import { telemetryService } from '@main/lib/telemetry';
+
+/** Emjosh's own update items, in the app menu on macOS and the File menu elsewhere. */
+function personalUpdateItems() {
+  return [
+    {
+      label: 'Check for Updates\u2026',
+      click: () => void checkForPersonalUpdates(),
+    },
+    {
+      label: `Reload ${PRODUCT_NAME}`,
+      click: () => personalReloadService.reload(),
+    },
+  ];
+}
 
 export interface MenuKeybindingSnapshotEntry {
   readonly commandId: string;
@@ -75,16 +92,15 @@ export function setupApplicationMenu(
                 accelerator: acceleratorFor('app.settings'),
                 click: () => emitCommand('app.settings'),
               },
-              IS_PERSONAL
-                ? {
-                    label: `Reload ${PRODUCT_NAME}`,
-                    click: () => personalReloadService.reload(),
-                  }
-                : {
-                    label: 'Check for Updates\u2026',
-                    click: () =>
-                      desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
-                  },
+              ...(IS_PERSONAL
+                ? personalUpdateItems()
+                : [
+                    {
+                      label: 'Check for Updates\u2026',
+                      click: () =>
+                        desktopHostEvents.emit(undefined, { type: 'menu-check-for-updates' }),
+                    },
+                  ]),
               { type: 'separator' as const },
               { role: 'services' as const },
               { type: 'separator' as const },
@@ -105,7 +121,7 @@ export function setupApplicationMenu(
     {
       label: 'File',
       submenu: [
-        // On non-macOS, put Settings in File menu
+        // On non-macOS, put Settings (and Emjosh's update items) in File menu
         ...(!isMac
           ? [
               {
@@ -113,6 +129,7 @@ export function setupApplicationMenu(
                 accelerator: acceleratorFor('app.settings'),
                 click: () => emitCommand('app.settings'),
               },
+              ...(IS_PERSONAL ? personalUpdateItems() : []),
               { type: 'separator' as const },
             ]
           : []),
