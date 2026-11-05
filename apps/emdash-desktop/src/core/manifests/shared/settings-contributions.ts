@@ -18,6 +18,7 @@ import { terminalSettingsContribution } from '@core/features/terminals/contribut
 import {
   frameTintSettingsContribution,
   interfaceSettingsContribution,
+  linkOpenBehaviorSettingsContribution,
   keyboardSettingsContribution,
   openInSettingsContribution,
   themeSettingsContribution,
@@ -45,6 +46,7 @@ export const appSettingsSchemaContributions = {
   notifications: notificationSettingsContribution,
   theme: themeSettingsContribution,
   frameTint: frameTintSettingsContribution,
+  linkOpenBehavior: linkOpenBehaviorSettingsContribution,
   openIn: openInSettingsContribution,
   interface: interfaceSettingsContribution,
   terminal: terminalSettingsContribution,

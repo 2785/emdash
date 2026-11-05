@@ -79,6 +79,16 @@ export const frameTintSettingsContribution = defineSettingsContribution<'frameTi
   defaults: 'none',
 });
 
+/** Where clicked links open: ask each time, or always use the remembered choice. */
+export const linkOpenBehaviorSettingsContribution = defineSettingsContribution<
+  'linkOpenBehavior',
+  'ask' | 'emdash-browser' | 'external-browser'
+>({
+  key: 'linkOpenBehavior',
+  schema: z.enum(['ask', 'emdash-browser', 'external-browser']).catch('ask'),
+  defaults: 'ask',
+});
+
 export const openInSettingsContribution = defineSettingsContribution<'openIn', OpenInSettings>({
   key: 'openIn',
   schema: openInSettingsSchema,
