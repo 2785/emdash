@@ -28,11 +28,12 @@ die() {
 bump="${1:-patch}"
 
 [ -z "$(git status --porcelain)" ] || die 'The working tree has changes; release from a clean checkout.'
-git fetch -q origin main --tags
+git fetch -q origin main
 commit="$(git rev-parse HEAD)"
 [ "$commit" = "$(git rev-parse origin/main)" ] || die 'HEAD is not origin/main; release from merged main.'
 
-latest="$(gh_ release view --repo "$REPO" --json tagName --jq .tagName 2>/dev/null | sed 's/^v//' || true)"
+# Release tags are emjosh-vX.Y.Z: upstream Emdash's vX.Y.Z tags may be in this checkout too.
+latest="$(bash scripts/emjosh-version.sh)"
 case "$bump" in
   [0-9]*.[0-9]*.[0-9]*) version="$bump" ;;
   patch | minor | major)
@@ -49,7 +50,8 @@ case "$bump" in
     ;;
   *) die "Unknown version bump '$bump': use patch, minor, major, or X.Y.Z." ;;
 esac
-git rev-parse -q --verify "refs/tags/v$version" >/dev/null && die "v$version already exists."
+tag="emjosh-v$version"
+[ -z "$(git ls-remote --tags origin "refs/tags/$tag")" ] || die "$tag already exists."
 if [ -z "${EMJOSH_SKIP_LINUX:-}" ]; then
   docker --context "$LINUX_CONTEXT" info >/dev/null 2>&1 ||
     die "Docker context '$LINUX_CONTEXT' is not running (colima start -p emjosh-linux), or set EMJOSH_SKIP_LINUX=1."
@@ -89,7 +91,6 @@ asset_json() {
   printf '\n  }\n}\n'
 } >"$OUT/$MANIFEST_NAME"
 
-gh_ release create "v$version" "${assets[@]}" "$OUT/$MANIFEST_NAME" \
+gh_ release create "$tag" "${assets[@]}" "$OUT/$MANIFEST_NAME" \
   --repo "$REPO" --target "$commit" --title "Emjosh $version" --generate-notes
-git fetch -q origin --tags
-echo "Published https://github.com/$REPO/releases/tag/v$version"
+echo "Published https://github.com/$REPO/releases/tag/$tag"

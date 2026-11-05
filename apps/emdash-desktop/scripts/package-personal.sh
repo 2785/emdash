@@ -3,9 +3,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Emjosh's version: given by scripts/release.sh, else the latest release tag this checkout has,
-# else 0.0.1, older than any release (0.0.0 would fall back to upstream's version).
-EMJOSH_VERSION="${EMJOSH_VERSION:-$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null | sed 's/^v//')}"
+# Emjosh's version: given by scripts/release.sh, else the latest release, else 0.0.1, older
+# than any release (0.0.0 would fall back to upstream's version).
+EMJOSH_VERSION="${EMJOSH_VERSION:-$(bash scripts/emjosh-version.sh)}"
 export EMJOSH_VERSION="${EMJOSH_VERSION:-0.0.1}"
 
 node ../../tooling/scripts/ensure-packages-built.mjs

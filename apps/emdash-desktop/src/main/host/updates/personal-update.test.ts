@@ -93,6 +93,14 @@ describe('parseReleaseManifest', () => {
   });
 });
 
+describe('releaseAssetUrl', () => {
+  it("points at the asset of the release's emjosh-v tag", () => {
+    expect(releaseAssetUrl('0.2.0', macAsset)).toBe(
+      'https://github.com/2785/emjosh/releases/download/emjosh-v0.2.0/Emjosh-mac-arm64.zip'
+    );
+  });
+});
+
 describe('releasePlatform', () => {
   it('maps the platforms Emjosh is released for', () => {
     expect(releasePlatform('darwin', 'arm64')).toBe('mac-arm64');
