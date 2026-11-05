@@ -84,12 +84,12 @@ describe('TaskAutoNamer', () => {
 
   it("replaces the generated placeholder name with the conversation's title", async () => {
     const rename = await nameAfterTitle('dull-geese-try', 'Remove sandbox access expiry');
-    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith('remove-sandbox-access-expiry'));
+    await vi.waitFor(() => expect(rename).toHaveBeenCalledWith('Remove sandbox access expiry'));
   });
 
   it('keeps any other name, including one it gave earlier, when the title changes', async () => {
     const rename = await nameAfterTitle(
-      'remove-sandbox-access-expiry',
+      'Remove sandbox access expiry',
       'Column drop migration ordering'
     );
     await new Promise((resolve) => setTimeout(resolve, 20));

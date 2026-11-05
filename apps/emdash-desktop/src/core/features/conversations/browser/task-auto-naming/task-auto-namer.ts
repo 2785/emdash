@@ -7,7 +7,6 @@ import {
   getTaskManagerStore,
   getTaskStore,
 } from '@core/features/tasks/api/browser/task-state/task-selectors';
-import { isRandomTaskName } from '@core/features/tasks/api/task-names';
 import { log } from '@core/primitives/logging/browser/logger';
 
 /** The agent-given title of the task's first conversation, once it has one. */
@@ -46,9 +45,8 @@ export class TaskAutoNamer {
     const task = getTaskStore(this.projectId, this.taskId);
     if (!task || task.state === 'unregistered') return;
     const currentName = task.data.name;
-    // Only the generated placeholder: later titles follow the conversation's latest messages,
-    // which are usually follow-ups, so a named task keeps its name.
-    if (!isRandomTaskName(currentName)) return;
+    // Later titles follow the conversation's latest messages, usually follow-ups, so autoTaskName
+    // only replaces a placeholder (or this title's old branch-style form).
 
     const siblingNames = [...(getTaskManagerStore(this.projectId)?.tasks.values() ?? [])]
       .filter((sibling) => sibling.data.id !== this.taskId)
@@ -57,7 +55,6 @@ export class TaskAutoNamer {
       title,
       currentName,
       siblingNames,
-      preserveCapitalization: settings?.preserveNameCapitalization,
     });
     if (!name) return;
 

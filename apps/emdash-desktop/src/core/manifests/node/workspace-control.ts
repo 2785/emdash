@@ -9,6 +9,7 @@ import {
   startAcpConversationSession,
 } from '@core/features/conversations/node/wire-controller';
 import type { InitiativeMessage } from '@core/features/initiatives/api/contract';
+import { formatTaskDisplayName, normalizeTaskName } from '@core/features/tasks/api/task-names';
 import { generateRandom } from '@core/features/tasks/node/name-generation/generateTaskName';
 import {
   startControlMcpEndpoint,
@@ -297,9 +298,6 @@ export async function startWorkspaceControl(
       if (!result.success) throw new Error(`Could not rename the workspace: ${result.error.type}`);
     },
 
-    preserveNameCapitalization: async () =>
-      (await appSettings.get('tasks')).preserveNameCapitalization ?? false,
-
     async createWorkspace(input) {
       const repoPath = await repositoryPath(input.projectId);
       if (!repoPath) throw new Error('Only local projects are supported for now.');
@@ -309,9 +307,10 @@ export async function startWorkspaceControl(
         : await defaultBaseBranch(repoPath, 'origin');
       if (!fromBranch) throw new Error('Could not determine a base branch; pass baseBranch.');
 
-      const name = input.name?.trim() || generateRandom();
+      // The workspace shows the name as given; its branch needs the branch-safe form.
+      const name = formatTaskDisplayName(input.name ?? '') || generateRandom();
       const branchName = resolveTaskBranchName({
-        rawBranch: name,
+        rawBranch: normalizeTaskName(name) || generateRandom(),
         branchPrefix: projectSettings.branchPrefix,
         suffix: Math.random().toString(36).slice(2, 7),
         appendRandomSuffix: projectSettings.appendRandomBranchSuffix,

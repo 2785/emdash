@@ -1,5 +1,5 @@
 import type { Initiative, InitiativeMessage } from '@core/features/initiatives/api/contract';
-import { ensureUniqueTaskName, isRandomTaskName } from '@core/features/tasks/api/task-names';
+import { ensureUniqueTaskDisplayName, isRandomTaskName } from '@core/features/tasks/api/task-names';
 
 /**
  * Workspace control: what an agent (inside Emjosh today, any MCP client later) can do with
@@ -80,8 +80,6 @@ export type WorkspaceControlDeps = {
   callerContext(conversationId: string): Promise<{ taskId: string; provider: string } | null>;
   archiveWorkspace(projectId: string, taskId: string): Promise<void>;
   renameWorkspace(projectId: string, taskId: string, name: string): Promise<void>;
-  /** The "Preserve capitalization" task setting. */
-  preserveNameCapitalization(): Promise<boolean>;
   createWorkspace(
     input: CreateWorkspaceInput & { provider: string | undefined }
   ): Promise<{ id: string; name: string; branch: string | null }>;
@@ -180,9 +178,7 @@ export class WorkspaceControlService {
     const siblings = all
       .filter((other) => other.projectId === workspace.projectId && other.id !== taskId)
       .map((other) => other.name);
-    const name = ensureUniqueTaskName(input.name, siblings, 6, {
-      preserveCapitalization: await this.deps.preserveNameCapitalization(),
-    });
+    const name = ensureUniqueTaskDisplayName(input.name, siblings);
     if (!name) throw new Error('The name has no usable characters.');
     if (name !== workspace.name) await this.deps.renameWorkspace(workspace.projectId, taskId, name);
     return { renamed: true, name };

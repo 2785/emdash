@@ -36,7 +36,6 @@ function setup(rows: Omit<ControlWorkspace, 'pullRequest'>[]) {
     ),
     archiveWorkspace: vi.fn(async () => {}),
     renameWorkspace: vi.fn(async () => {}),
-    preserveNameCapitalization: vi.fn(async () => false),
     createWorkspace: vi.fn(async () => ({ id: 'new', name: 'new', branch: 'new' })),
     onArchived: vi.fn(),
   } satisfies WorkspaceControlDeps;
@@ -106,13 +105,17 @@ describe('WorkspaceControlService', () => {
       workspace({ id: 'elsewhere', name: 'fix-login', projectId: 'p2' }),
     ]);
 
+    // Names are for display: written as given, suffixed when a sibling's name collides.
     await expect(
       service.renameWorkspace({ conversationId: 'conv-self' }, { name: 'Remove sandbox expiry' })
-    ).resolves.toEqual({ renamed: true, name: 'remove-sandbox-expiry-2' });
-    expect(deps.renameWorkspace).toHaveBeenCalledWith('p1', 'self', 'remove-sandbox-expiry-2');
+    ).resolves.toEqual({ renamed: true, name: 'Remove sandbox expiry 2' });
+    expect(deps.renameWorkspace).toHaveBeenCalledWith('p1', 'self', 'Remove sandbox expiry 2');
 
-    await service.renameWorkspace({ conversationId: 'conv-self' }, { name: 'Fix login' });
-    expect(deps.renameWorkspace).toHaveBeenLastCalledWith('p1', 'self', 'fix-login');
+    await service.renameWorkspace(
+      { conversationId: 'conv-self' },
+      { name: '  Fix  login: AR/AP 1_1 ' }
+    );
+    expect(deps.renameWorkspace).toHaveBeenLastCalledWith('p1', 'self', 'Fix login: AR/AP 1_1');
   });
 
   it('keeps a chosen name unless overridden', async () => {
@@ -125,7 +128,7 @@ describe('WorkspaceControlService', () => {
     expect(deps.renameWorkspace).not.toHaveBeenCalled();
 
     await service.renameWorkspace(caller, { name: 'something else', override: true });
-    expect(deps.renameWorkspace).toHaveBeenCalledWith('p1', 'self', 'something-else');
+    expect(deps.renameWorkspace).toHaveBeenCalledWith('p1', 'self', 'something else');
   });
 
   it('only renames for callers running in a workspace', async () => {
