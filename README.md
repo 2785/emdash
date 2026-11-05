@@ -1,95 +1,80 @@
-<img alt="Emdash" src="https://github.com/user-attachments/assets/a2ecaf3c-9d84-40ca-9a8e-d4f612cc1c6f" />
+# Emjosh
 
-<div align="center">
+**Emjosh is a shamelessly forked copy of [Emdash](https://github.com/generalaction/emdash).**
 
-[Download](https://emdash.sh/download) · [Docs](https://emdash.sh/docs) · [Releases](https://github.com/generalaction/emdash/releases/latest) · [Discord](https://discord.gg/f2fv7YxuR2) · [Contributing](CONTRIBUTING.md)
+It's my personal build of Emdash with the features I want and the rough edges I care about
+filed down. For the time being I'm not planning to contribute any of it back upstream; that
+may change once I'm happy with it. It is intended for friends and family, not general
+distribution.
 
-<br />
+The motivation: Meta acquired and shut down [Conductor](https://conductor.build), and I'd
+rather not depend on a tool I don't control again. Emdash is open source (Apache-2.0), so
+I have a copy I can keep running and shape however I like.
 
-[![Apache 2.0 License](https://img.shields.io/badge/License-Apache_2.0-555555.svg?labelColor=333333&color=666666)](./LICENSE.md)
-[![Downloads](https://img.shields.io/github/downloads/generalaction/emdash/total?labelColor=333333&color=666666)](https://github.com/generalaction/emdash/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/generalaction/emdash?labelColor=333333&color=666666&logo=github)](https://github.com/generalaction/emdash)
-[![Last Commit](https://img.shields.io/github/last-commit/generalaction/emdash?labelColor=333333&color=666666)](https://github.com/generalaction/emdash/commits/main)
-[![Commit Activity](https://img.shields.io/github/commit-activity/m/generalaction/emdash?labelColor=333333&color=666666)](https://github.com/generalaction/emdash/graphs/commit-activity)
+Emjosh is not affiliated with or endorsed by the Emdash team. Please don't report Emjosh
+problems to them.
 
-[![Discord](https://img.shields.io/badge/Discord-join-%235462eb?labelColor=%235462eb&logo=discord&logoColor=%23f5f5f5)](https://discord.gg/f2fv7YxuR2)
-<a href="https://www.ycombinator.com"><img src="https://img.shields.io/badge/Y%20Combinator-W26-orange" alt="Y Combinator W26"></a>
-[![Follow @emdashsh on X](https://img.shields.io/twitter/follow/emdashsh?logo=X&color=%23f5f5f5)](https://twitter.com/intent/follow?screen_name=emdashsh)
+## What's different from Emdash
 
-</div>
+- **Interrupt mode for chat.** Settings → General → *Messages sent while agent is working*:
+  *Queue* (Emdash's behavior) or *Interrupt*, which cancels the running turn and sends your
+  message, merged with anything already queued, as one prompt.
+- **More reliable agent status.** Fewer conversations stuck spinning or wrongly flagged as
+  waiting for you (e.g. after reopening a chat, a restart, or an interrupted turn).
+- **Its own app.** `Emjosh.app` installs next to Emdash, with its own data
+  (`~/Library/Application Support/emjosh`) and keychain entry, and never auto-updates from
+  Emdash releases.
+- **Reload button.** Rebuild, then click *Reload* in the sidebar (or Emjosh → Reload Emjosh)
+  to restart on the new build.
+- **No Emdash branding or services.** No Emdash account, feedback, update, or docs surfaces,
+  and local builds carry no telemetry key, so nothing is sent.
 
-Emdash is a desktop app for running AI coding agents in parallel. Each task runs in its
-own Git worktree, so you can explore multiple fixes or features at once, review the
-diffs, and merge what works.
+## Install (macOS, Apple Silicon)
 
-It works with local projects and remote machines over SSH. Bring the CLI agents you
-already use: Claude Code, Codex, OpenCode, Amp, and more.
-
-<img alt="Emdash product screenshot" src="https://emdash.sh/media/blog/public-v1-beta/v1beta.jpg" />
-
-## What You Can Do
-
-- Run multiple coding agents at once without juggling terminals.
-- Keep every agent isolated in its own Git worktree and branch.
-- Send issues and tickets from Linear, GitHub, Jira, GitLab, Asana, Featurebase,
-  Monday.com, Forgejo, Plain, or YouTrack into an agent.
-- Review diffs, create pull requests, inspect CI checks, and merge from one place.
-- Work locally or on your own remote machines over SSH/SFTP.
-
-## Installation
-
-| Platform | Install |
-| --- | --- |
-| macOS | `brew install --cask emdash` · [Apple Silicon](https://github.com/generalaction/emdash/releases/latest/download/emdash-arm64.dmg) · [Intel](https://github.com/generalaction/emdash/releases/latest/download/emdash-x64.dmg) |
-| Windows | [Installer](https://github.com/generalaction/emdash/releases/latest/download/emdash-x64.msi) · [Portable](https://github.com/generalaction/emdash/releases/latest/download/emdash-x64.exe) |
-| Linux x64 | [AppImage](https://github.com/generalaction/emdash/releases/latest/download/emdash-x86_64.AppImage) · [DEB](https://github.com/generalaction/emdash/releases/latest/download/emdash-amd64.deb) · [RPM](https://github.com/generalaction/emdash/releases/latest/download/emdash-x86_64.rpm) |
-| Linux ARM64 | [AppImage](https://github.com/generalaction/emdash/releases/latest/download/emdash-arm64.AppImage) · [DEB](https://github.com/generalaction/emdash/releases/latest/download/emdash-arm64.deb) · [RPM](https://github.com/generalaction/emdash/releases/latest/download/emdash-aarch64.rpm) |
-
-See the [latest release](https://github.com/generalaction/emdash/releases/latest) for
-all desktop builds.
-
-## Agents
-
-Emdash detects installed provider CLIs automatically. It supports agents like Claude
-Code, Codex, Cursor, OpenCode, Amp, Devin, Qwen Code, Droid, and GitHub
-Copilot.
-
-For agents with lifecycle-hook support, Emdash installs marker-tagged entries in the agent's
-user-level config. These hooks let Emdash track status, notifications, and resumable sessions, and
-silently do nothing when the agent runs outside an Emdash session.
-
-See [Providers](https://emdash.sh/docs/providers) for the full list, setup commands,
-and provider-specific behavior.
-
-## Remote Projects
-
-Connect to remote machines with SSH/SFTP and run the same parallel workflow on remote
-codebases. Emdash supports SSH agent, key, and password authentication, including OpenSSH
-certificates held by the agent, with credentials stored in your OS keychain.
-
-See [Remote Projects](https://emdash.sh/docs/remote-projects) for setup details.
-
-## Privacy
-
-Emdash is local-first. App state is stored in a local SQLite database, and Emdash does
-not send your code or chats to Emdash servers.
-
-Agent CLIs may send code, prompts, and context to their own providers. Their data
-handling depends on the provider you choose.
-
-Telemetry is optional and can be disabled in Settings or by launching with:
+There are no prebuilt releases; you build it yourself. You need `pnpm` (any version; the repo
+pins its own pnpm and Node) and the Xcode command line tools (`xcode-select --install`).
 
 ```bash
-TELEMETRY_ENABLED=false
+git clone https://github.com/2785/emdash.git emjosh
+cd emjosh
+pnpm install
+pnpm --dir apps/emdash-desktop run install:personal
 ```
 
-See [Telemetry](https://emdash.sh/docs/telemetry) for details.
+That builds `/Applications/Emjosh.app` and opens it. The first build creates a local
+self-signed code signing certificate ("Emjosh Local Signing") in your login keychain, so
+macOS remembers your keychain and privacy approvals across rebuilds.
 
-## Contributing
+Coming from Emdash? Copy your projects, tasks, and conversations over once, with Emjosh
+closed:
 
-Contributions are welcome. Read the [Contributing Guide](CONTRIBUTING.md), open an
-issue, or join the [Discord](https://discord.gg/f2fv7YxuR2).
+```bash
+pnpm --dir apps/emdash-desktop run seed:emjosh
+```
 
-## License
+Saved sign-ins come along too: on first launch Emjosh asks once to read Emdash's keychain
+key and re-encrypts them under its own.
 
-Licensed under the [Apache-2.0 license](LICENSE.md).
+## Updating
+
+```bash
+git pull
+pnpm --dir apps/emdash-desktop run install:personal
+```
+
+If Emjosh is running, the new build is staged and the sidebar button turns into
+*Reload · new build*. Click it to restart on the new build.
+
+## Development
+
+The codebase is Emdash's: an Electron + React app in a pnpm/Nx monorepo. The Electron app
+lives in `apps/emdash-desktop/`, shared packages in `packages/`. Start with
+[AGENTS.md](AGENTS.md) for architecture and conventions; the full gate is `pnpm run check`.
+
+## Credit and license
+
+All the hard work is Emdash's, by [General Action](https://github.com/generalaction) and its
+contributors. Go use [Emdash](https://emdash.sh) if you want the real, supported thing.
+
+Emjosh is distributed under the same [Apache-2.0 license](LICENSE.md). Files have been modified
+from the Emdash originals; see this repository's commit history for the changes.
