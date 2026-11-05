@@ -178,6 +178,9 @@ export const tasks = sqliteTable(
     type: text('type').notNull().default('task'), // 'task' | 'automation-run'
     automationRunId: text('automation_run_id'), // set when type = 'automation-run'; runtime-owned reference, intentionally no FK
     deletedAt: text('deleted_at'),
+    // Optional cross-project grouping. No FK so adding it needs no table rebuild; clearing on
+    // initiative deletion is done by the initiatives service.
+    initiativeId: text('initiative_id'),
   },
   (table) => ({
     projectIdIdx: index('idx_tasks_project_id').on(table.projectId),
@@ -560,3 +563,44 @@ export type ProviderAccountRow = typeof providerAccounts.$inferSelect;
 export type ProviderAccountInsert = typeof providerAccounts.$inferInsert;
 export type WorkspaceRow = typeof workspaces.$inferSelect;
 export type WorkspaceInsert = typeof workspaces.$inferInsert;
+
+/** Optional groups of tasks across projects (e.g. one change spanning several repositories). */
+export const initiatives = sqliteTable('initiatives', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  /** 1 = messages addressed to a task are also delivered into its agent conversation. */
+  pushMessages: integer('push_messages').notNull().default(0),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  archivedAt: text('archived_at'),
+});
+
+/** The message feed of an initiative: posts from agents/the user and events from the app. */
+export const initiativeMessages = sqliteTable(
+  'initiative_messages',
+  {
+    id: text('id').primaryKey(),
+    initiativeId: text('initiative_id')
+      .notNull()
+      .references(() => initiatives.id, { onDelete: 'cascade' }),
+    /** Sending task; null for the user or the app. */
+    fromTaskId: text('from_task_id'),
+    /** Addressed task; null for everyone in the initiative. */
+    toTaskId: text('to_task_id'),
+    kind: text('kind').notNull().$type<'message' | 'event'>(),
+    body: text('body').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
+  },
+  (table) => ({
+    initiativeCreatedIdx: index('idx_initiative_messages_initiative_created').on(
+      table.initiativeId,
+      table.createdAt
+    ),
+  })
+);
