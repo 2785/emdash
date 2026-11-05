@@ -63,7 +63,10 @@ EMJOSH_VERSION="$version" pnpm run package:personal
 
 # Installed copies only accept updates signed by the identity they were signed with, so every
 # release must use the same stable one.
-codesign -dvv "$APP" 2>&1 | grep -q '^Authority=Apple Development: ' ||
+# Captured first: `grep -q` stops reading early, and under pipefail codesign's SIGPIPE would
+# fail the check.
+signature="$(codesign -dvv "$APP" 2>&1)"
+grep -q '^Authority=Apple Development: ' <<<"$signature" ||
   die 'Releases must be signed with an Apple Development identity (see the README).'
 [ "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" = "$version" ] ||
   die "The packaged app does not report version $version."
