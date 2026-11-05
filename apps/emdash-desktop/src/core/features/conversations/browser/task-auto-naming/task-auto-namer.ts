@@ -2,15 +2,12 @@ import { reaction } from 'mobx';
 import type { ConversationManagerStore } from '@core/features/conversations/api/browser/conversation-manager';
 import { isDefaultConversationTitle } from '@core/features/conversations/api/browser/conversation-title-utils';
 import { getAppSettingValueSnapshot } from '@core/features/settings/api/browser/app-settings-client';
-import {
-  autoTaskName,
-  hasAutoTaskName,
-  recordAutoTaskName,
-} from '@core/features/tasks/api/browser/task-naming';
+import { autoTaskName } from '@core/features/tasks/api/browser/task-naming';
 import {
   getTaskManagerStore,
   getTaskStore,
 } from '@core/features/tasks/api/browser/task-state/task-selectors';
+import { isRandomTaskName } from '@core/features/tasks/api/task-names';
 import { log } from '@core/primitives/logging/browser/logger';
 
 /** The agent-given title of the task's first conversation, once it has one. */
@@ -49,7 +46,9 @@ export class TaskAutoNamer {
     const task = getTaskStore(this.projectId, this.taskId);
     if (!task || task.state === 'unregistered') return;
     const currentName = task.data.name;
-    if (!(await hasAutoTaskName(this.taskId, currentName))) return;
+    // Only the generated placeholder: later titles follow the conversation's latest messages,
+    // which are usually follow-ups, so a named task keeps its name.
+    if (!isRandomTaskName(currentName)) return;
 
     const siblingNames = [...(getTaskManagerStore(this.projectId)?.tasks.values() ?? [])]
       .filter((sibling) => sibling.data.id !== this.taskId)
@@ -62,7 +61,6 @@ export class TaskAutoNamer {
     });
     if (!name) return;
 
-    recordAutoTaskName(this.taskId, name);
     const result = await task.rename(name);
     if (!result.success) log.warn('Automatic task rename failed', { taskId: this.taskId });
   }

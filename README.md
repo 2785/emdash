@@ -53,9 +53,10 @@ problems to them.
   project rows, the sidebar header's **+** opens a searchable project picker for a new task.
 - **"Last used" means real activity.** Tasks move up when a prompt is sent or a turn finishes
   or needs you, not when you click into them.
-- **Workspace names follow the work.** Agents name their workspace as soon as they know what
-  it's for, and a workspace that still has an automatic name takes its first conversation's
-  title; names you chose are never touched.
+- **Workspaces name themselves.** Agents name their workspace once, as soon as they know what
+  it's for, and keep that name through follow-ups (renaming only if you ask or the work turns
+  into something unrelated). A workspace still on its placeholder name takes its first
+  conversation's title; names you chose are never touched.
 - **More reliable agent status.** Fewer conversations stuck spinning or wrongly flagged as
   waiting for you (after reopening a chat, a restart, or an interrupted turn).
 

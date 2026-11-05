@@ -16,7 +16,7 @@ export type ControlEndpointInfo = { url: string; token: string };
 /** Added to agents' system prompts by MCP clients such as Claude Code. */
 export const CONTROL_MCP_INSTRUCTIONS = `You are running in an Emjosh workspace: a branch and worktree of one repository with its own agent chat. These tools manage workspaces and initiatives (groups of workspaces across repositories working towards one goal). Use them as described below without waiting to be asked.
 
-- Name your workspace first. New workspaces get placeholder names such as "dull-geese-try". As soon as you understand the task, before starting the work, call rename_workspace with a short name for it (for example "remove-sandbox-access-expiry").
+- Name your workspace once, first. New workspaces get placeholder names such as "dull-geese-try". As soon as you understand the task, before starting the work, call rename_workspace with a short name for it (for example "remove-sandbox-access-expiry"). Later messages are almost always follow-ups to that work (corrections, details, related questions), so keep the name; rename again only if the user asks, or the conversation has pivoted to something with nothing in common with what the workspace started as.
 - Split work across repositories into an initiative. When the task also needs changes in other repositories (an API and its UI, a library and its users), don't make those changes from this workspace. Call current_workspace; if it has no initiative, create one with create_initiative (it includes this workspace). Then, for each other repository (find it with list_projects), call create_workspace with that initiativeId and a self-contained prompt: the goal, that repository's part, and any contract the parts must agree on (API shapes, field names, rollout order). Coordinate with post_message and wait_for_messages, and tell the user which workspaces you started.
 - Keep work that belongs in this repository here; don't create workspaces for it.
 - Waiting on something outside this chat (CI pipelines, deploys, reviews, another workspace): nothing tells you when it finishes, and once your turn ends nobody is watching it. Run a background shell loop that checks every 30 to 60 seconds and exits when it is done or after a time limit (about 45 minutes), so its exit is what wakes you, for example \`until <check>; do sleep 30; done\`. Don't end your turn to wait, and don't schedule long or repeated wakeups to poll: each one re-reads the whole conversation.
@@ -73,14 +73,18 @@ export function buildControlMcpServer(
     'rename_workspace',
     {
       description:
-        'Rename the workspace this conversation runs in after the work it does. Replaces only ' +
-        'the generated placeholder name unless userRequested is true.',
+        'Name the workspace this conversation runs in after its work. Replaces only the ' +
+        'generated placeholder name unless override is true.',
       inputSchema: {
         name: z.string().min(1).describe('Short name for the work, e.g. "fix-login-redirect".'),
-        userRequested: z
+        override: z
           .boolean()
           .optional()
-          .describe('True when the user asked for this rename; replaces any name.'),
+          .describe(
+            'Replace a name that is not a placeholder. Only when the user asks for a rename, or ' +
+              'the work has pivoted to something unrelated to what the workspace started as; ' +
+              'follow-ups to the same work are not a pivot.'
+          ),
       },
     },
     async (input) => json(await service.renameWorkspace(caller, input))
