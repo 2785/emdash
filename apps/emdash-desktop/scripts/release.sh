@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Builds Emjosh (macOS arm64, and Linux x64 in a container) from merged main and publishes it
-# as a GitHub release of 2785/emjosh, where installed copies pick it up
+# Builds Emjosh (macOS arm64 and Intel, Linux x64 in a container) from merged main and publishes
+# it as a GitHub release of 2785/emjosh, where installed copies pick it up
 # (src/main/host/updates/personal-update.ts).
 #
 #   pnpm run release            # next patch version (the first release is 0.1.0)
@@ -13,6 +13,8 @@ REPO='2785/emjosh'
 APP='release/mac-arm64/Emjosh.app'
 OUT='release/publish'
 ZIP_NAME='Emjosh-mac-arm64.zip'
+INTEL_APP='release/mac-x64/Emjosh.app'
+INTEL_ZIP_NAME='Emjosh-mac-x64.zip'
 APPIMAGE='release/linux-x64/Emjosh-linux-x64.AppImage'
 LINUX_CONTEXT="${EMJOSH_LINUX_DOCKER_CONTEXT:-colima-emjosh-linux}"
 # Keep in sync with PERSONAL_MANIFEST_ASSET in src/main/host/updates/personal-update.ts.
@@ -59,22 +61,26 @@ fi
 echo "Releasing Emjosh $version (${latest:+after $latest, }commit ${commit:0:9})"
 
 EMJOSH_VERSION="$version" pnpm run package:personal
+EMJOSH_VERSION="$version" pnpm run package:personal:mac-x64
 [ -n "${EMJOSH_SKIP_LINUX:-}" ] || EMJOSH_VERSION="$version" pnpm run package:personal:linux
 
 # Installed copies only accept updates signed by the identity they were signed with, so every
 # release must use the same stable one.
 # Captured first: `grep -q` stops reading early, and under pipefail codesign's SIGPIPE would
 # fail the check.
-signature="$(codesign -dvv "$APP" 2>&1)"
-grep -q '^Authority=Apple Development: ' <<<"$signature" ||
-  die 'Releases must be signed with an Apple Development identity (see the README).'
-[ "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" = "$version" ] ||
-  die "The packaged app does not report version $version."
+for app in "$APP" "$INTEL_APP"; do
+  signature="$(codesign -dvv "$app" 2>&1)"
+  grep -q '^Authority=Apple Development: ' <<<"$signature" ||
+    die "Releases must be signed with an Apple Development identity (see the README): $app"
+  [ "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version" ] ||
+    die "$app does not report version $version."
+done
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$OUT/$ZIP_NAME"
-assets=("$OUT/$ZIP_NAME")
+ditto -c -k --sequesterRsrc --keepParent "$INTEL_APP" "$OUT/$INTEL_ZIP_NAME"
+assets=("$OUT/$ZIP_NAME" "$OUT/$INTEL_ZIP_NAME")
 if [ -z "${EMJOSH_SKIP_LINUX:-}" ]; then
   cp "$APPIMAGE" "$OUT/"
   assets+=("$OUT/$(basename "$APPIMAGE")")
@@ -88,6 +94,7 @@ asset_json() {
   printf '{\n  "version": "%s",\n  "commit": "%s",\n  "releasedAt": "%s",\n  "assets": {\n' \
     "$version" "$commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf '    "mac-arm64": %s' "$(asset_json "$OUT/$ZIP_NAME")"
+  printf ',\n    "mac-x64": %s' "$(asset_json "$OUT/$INTEL_ZIP_NAME")"
   if [ -z "${EMJOSH_SKIP_LINUX:-}" ]; then
     printf ',\n    "linux-x64": %s' "$(asset_json "$OUT/$(basename "$APPIMAGE")")"
   fi

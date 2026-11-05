@@ -41,6 +41,7 @@
     "package:win": "pnpm run build && electron-builder --win --publish never --config electron-builder.config.ts",
     "package:personal": "bash scripts/package-personal.sh",
     "package:personal:linux": "bash scripts/package-personal-linux.sh",
+    "package:personal:mac-x64": "bash scripts/package-personal-mac-x64.sh",
     "install:personal": "bash scripts/install-personal.sh",
     "release": "bash scripts/release.sh",
     "seed:emjosh": "bash scripts/seed-emjosh-data.sh",

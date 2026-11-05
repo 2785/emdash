@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Builds and packages the personal flavor (Emjosh) into release/mac-arm64.
+# Builds and packages the personal flavor (Emjosh) into release/mac-arm64, or release/mac with
+# EMJOSH_MAC_ARCH=x64 (electron-builder's names; scripts/package-personal-mac-x64.sh sets it).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+APP="release/mac-arm64/Emjosh.app"
+[ "${EMJOSH_MAC_ARCH:-arm64}" = x64 ] && APP="release/mac/Emjosh.app"
 
 # Emjosh's version: given by scripts/release.sh, else the latest release, else 0.0.1, older
 # than any release (0.0.0 would fall back to upstream's version).
@@ -35,5 +39,5 @@ if [ -z "$identity" ]; then
   identity="$(bash scripts/setup-emjosh-signing.sh)"
 fi
 echo "Signing with $(security find-identity -p codesigning | awk -v h="$identity" '$2 == h { $1 = $2 = ""; print; exit }')"
-codesign --force --deep --sign "$identity" release/mac-arm64/Emjosh.app
-codesign --verify --deep --strict release/mac-arm64/Emjosh.app
+codesign --force --deep --sign "$identity" "$APP"
+codesign --verify --deep --strict "$APP"

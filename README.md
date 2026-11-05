@@ -83,9 +83,9 @@ problems to them.
 
 ## Install
 
-### macOS (Apple Silicon)
+### macOS
 
-Download `Emjosh-mac-arm64.zip` from the
+Download `Emjosh-mac-arm64.zip` (Apple Silicon) or `Emjosh-mac-x64.zip` (Intel) from the
 [latest release](https://github.com/2785/emjosh/releases/latest), unzip it, and move
 `Emjosh.app` to Applications.
 

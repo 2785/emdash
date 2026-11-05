@@ -21,7 +21,9 @@ const STARTUP_DELAY_MS = 5_000;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Platforms Emjosh is released for, as keys of a manifest's `assets`. */
-export type ReleasePlatform = 'mac-arm64' | 'linux-x64';
+export type ReleasePlatform = 'mac-arm64' | 'mac-x64' | 'linux-x64';
+
+const isMac = (platform: ReleasePlatform) => platform.startsWith('mac-');
 
 /** What a release ships for one platform: a zip of the signed `.app`, or an AppImage. */
 export type PersonalReleaseAsset = {
@@ -41,6 +43,7 @@ export type PersonalReleaseManifest = {
 const VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
 const ASSET_FILE: Record<ReleasePlatform, RegExp> = {
   'mac-arm64': /^[\w.-]+\.zip$/,
+  'mac-x64': /^[\w.-]+\.zip$/,
   'linux-x64': /^[\w.-]+\.AppImage$/,
 };
 
@@ -87,6 +90,7 @@ export function releasePlatform(
   arch: string = process.arch
 ): ReleasePlatform | null {
   if (platform === 'darwin' && arch === 'arm64') return 'mac-arm64';
+  if (platform === 'darwin' && arch === 'x64') return 'mac-x64';
   if (platform === 'linux' && arch === 'x64') return 'linux-x64';
   return null;
 }
@@ -253,8 +257,9 @@ export async function stageRelease(
     if (downloaded.sha512 !== asset.sha512 || downloaded.size !== asset.size) {
       throw new Error('Downloaded release does not match its manifest');
     }
-    const prepared =
-      platform === 'mac-arm64' ? await prepareMacApp(file, work, bundlePath, productName) : file;
+    const prepared = isMac(platform)
+      ? await prepareMacApp(file, work, bundlePath, productName)
+      : file;
     if (platform === 'linux-x64') await chmod(prepared, 0o755);
 
     // build.json goes last: the Reload button treats its presence as a complete stage.
@@ -262,7 +267,7 @@ export async function stageRelease(
     await mkdir(stageDir, { recursive: true });
     await rename(
       prepared,
-      join(stageDir, stagedArtifactName(platform === 'mac-arm64' ? 'darwin' : 'linux', productName))
+      join(stageDir, stagedArtifactName(isMac(platform) ? 'darwin' : 'linux', productName))
     );
     await writeFile(
       join(stageDir, 'build.json'),
