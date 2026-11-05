@@ -4,7 +4,7 @@ import { noopLogger } from '@emdash/shared/logger';
 import { deferred } from '@emdash/shared/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { FakeAcpAgent } from '#runtimes/acp/node/acp-test-support';
-import { SessionCell } from './cell';
+import { promptImageBlocks, SessionCell } from './cell';
 import type { SessionCellDeps } from './cell-deps';
 function makePendingCell(agent = new FakeAcpAgent(), deps: Partial<SessionCellDeps> = {}) {
   const cell = new SessionCell({
@@ -723,5 +723,33 @@ describe('SessionCell idle turns and queue commands', () => {
     expect(cell.sessionState.queuedPrompts[1].text).toBe('edited');
     expect(isOk(cell.removeQueuedPrompt(first.id))).toBe(true);
     expect(cell.sessionState.queuedPrompts.map((prompt) => prompt.id)).toEqual([second.id]);
+  });
+});
+
+describe('promptImageBlocks', () => {
+  const image = (data: string) => ({ data, mimeType: 'image/png' });
+
+  it('labels images the prompt text refers to, as hidden context before each image', () => {
+    expect(
+      promptImageBlocks(
+        'compare [Image 2] with [Image 1]',
+        [{ name: 'Image 1' }, { name: 'Image 2' }],
+        [image('a'), image('b')]
+      )
+    ).toEqual([
+      { type: 'text', text: '<emdash-hidden-context>\n[Image 1]\n</emdash-hidden-context>' },
+      { type: 'image', data: 'a', mimeType: 'image/png' },
+      { type: 'text', text: '<emdash-hidden-context>\n[Image 2]\n</emdash-hidden-context>' },
+      { type: 'image', data: 'b', mimeType: 'image/png' },
+    ]);
+  });
+
+  it('sends unreferenced or unnamed images without a label', () => {
+    expect(
+      promptImageBlocks('look at this', [{ name: 'Image 1' }, {}], [image('a'), image('b')])
+    ).toEqual([
+      { type: 'image', data: 'a', mimeType: 'image/png' },
+      { type: 'image', data: 'b', mimeType: 'image/png' },
+    ]);
   });
 });

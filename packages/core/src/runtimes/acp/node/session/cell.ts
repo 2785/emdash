@@ -595,11 +595,7 @@ export class SessionCell {
       const promptRequest = {
         sessionId: this.acpSessionId,
         prompt: [
-          ...resolvedAttachments.map((attachment) => ({
-            type: 'image' as const,
-            data: attachment.data,
-            mimeType: attachment.mimeType,
-          })),
+          ...promptImageBlocks(prompt.text, prompt.attachments ?? [], resolvedAttachments),
           ...(prompt.text ? [{ type: 'text' as const, text: prompt.text }] : []),
           ...(prompt.hiddenContext
             ? [{ type: 'text' as const, text: wrapHiddenContext(prompt.hiddenContext) }]
@@ -828,3 +824,25 @@ function toStopReason(reason: TranscriptTurnOutcome['reason']): StopReason {
 }
 
 export { SESSION_PLAN_ID };
+
+type ResolvedImage = { data: string; mimeType: string };
+
+/**
+ * Image blocks for a prompt. An image the text refers to by its label (an attachment named
+ * "Image 1" referenced as "[Image 1]") is preceded by that label, so the agent can tell which
+ * image the text means. Labels are hidden-context blocks, which transcripts drop on replay.
+ */
+export function promptImageBlocks(
+  text: string | undefined,
+  attachments: readonly { name?: string }[],
+  resolved: readonly ResolvedImage[]
+) {
+  return resolved.flatMap((image, index) => {
+    const name = attachments[index]?.name;
+    const label = name && text?.includes(`[${name}]`) ? `[${name}]` : null;
+    return [
+      ...(label ? [{ type: 'text' as const, text: wrapHiddenContext(label) }] : []),
+      { type: 'image' as const, data: image.data, mimeType: image.mimeType },
+    ];
+  });
+}
